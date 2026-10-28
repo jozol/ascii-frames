@@ -1,0 +1,24 @@
+{
+  "name": "ascii-frames",
+  "version": "0.1.0",
+  "description": "Deterministic ASCII/UTF-8 wireframe design engine",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:app": "vite build",
+    "build:lib": "tsc",
+    "preview": "vite preview",
+    "demo": "tsc && node dist/examples/demo.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "happy-dom": "^21.0.4",
+    "typescript": "^5.7.0",
+    "vite": "^7.3.7",
+    "vitest": "^3.0.0"
+  }
+}

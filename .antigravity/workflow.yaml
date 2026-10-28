@@ -1,0 +1,70 @@
+version: "1.0.0"
+name: "Hard Harness System"
+description: "Deterministic 4-stage hard harness pipeline enforcing specification, test-gated execution, and adversarial review."
+
+pipeline:
+  # Stage 1: Specification & Planning
+  - stage: 1
+    id: "spec"
+    name: "Specification & Planning"
+    rule: ".antigravity/rules/planner.md"
+    objective: "Analyze user request, survey repository state, and generate active specification."
+    artifacts:
+      required:
+        - ".antigravity/active_spec.md"
+    policy:
+      allow_file_modifications: false
+      allowed_operations:
+        - "read_file"
+        - "search_web"
+        - "run_command:read_only"
+      enforce:
+        - "Must generate discrete checklist before coding"
+        - "Must define explicit verification command"
+
+  # Stage 2: Code Implementation
+  - stage: 2
+    id: "execution"
+    name: "Execution"
+    rule: ".antigravity/rules/coder.md"
+    objective: "Implement requested changes to satisfy active specification."
+    inputs:
+      - ".antigravity/active_spec.md"
+    policy:
+      allow_file_modifications: true
+      forbidden_actions:
+        - "Premature completion declarations"
+      enforce:
+        - "Progressively update checklist checkboxes in .antigravity/active_spec.md"
+        - "Direct fix on compiler/runtime errors output to stderr"
+        - "Preserve all invariants in AGENTS.md"
+
+  # Stage 3: Verification Gate
+  - stage: 3
+    id: "verification_gate"
+    name: "Verification Gate"
+    type: "automated_gate"
+    command: "scripts/harness_gate.sh"
+    timeout_seconds: 120
+    policy:
+      on_success: "proceed_to_review"
+      on_failure: "reject_to_execution"
+      max_retries: 5
+      log_destination: "/tmp/build_full.log"
+      truncated_stderr_lines: 40
+
+  # Stage 4: Adversarial Review
+  - stage: 4
+    id: "adversarial_review"
+    name: "Adversarial Review"
+    rule: ".antigravity/rules/reviewer.md"
+    objective: "Perform strict diff-only verification against active spec and repository invariants."
+    inputs:
+      - "git diff"
+      - ".antigravity/active_spec.md"
+    policy:
+      allow_file_modifications: false
+      output_format: "BINARY"
+      terminal_tokens:
+        - "APPROVED"
+        - "REJECTED"

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="ASCII-Frames Studio — Figma-like design tool for deterministic ASCII wireframes" />
+    <title>ASCII-Frames Studio</title>
+    <link rel="stylesheet" href="./src/editor/editor.css" />
+  </head>
+  <body>
+    <!-- Top Figma-Style Toolbar -->
+    <header class="toolbar-header">
+      <div class="toolbar-brand">
+        <span class="zen-seal" title="Zen Studio">ZEN</span>
+        <div class="brand-text-col">
+          <span class="brand-name">ASCII-Frames</span>
+          <span class="brand-sub">· Studio</span>
+        </div>
+      </div>
+
+      <!-- Figma Toolset -->
+      <nav class="tool-group" role="toolbar" aria-label="Editor Tools">
+        <button id="tool-select" class="tool-btn active" data-tool="select" title="Select & Move (V)">
+          <span>-&gt;</span>
+          <span>Select</span>
+          <span class="tool-badge">V</span>
+        </button>
+        <button id="tool-hand" class="tool-btn" data-tool="hand" title="Hand Tool / Pan Canvas (H or Space+Drag)">
+          <span>[H]</span>
+          <span>Hand</span>
+          <span class="tool-badge">H</span>
+        </button>
+        <button id="tool-container" class="tool-btn" data-tool="container" title="Frame / Container (F)">
+          <span>[#]</span>
+          <span>Frame</span>
+          <span class="tool-badge">F</span>
+        </button>
+        <button id="tool-circle" class="tool-btn" data-tool="circle" title="Ellipse / Circle / Avatar (O)">
+          <span>(O)</span>
+          <span>Circle</span>
+          <span class="tool-badge">O</span>
+        </button>
+        <button id="tool-line" class="tool-btn" data-tool="line" title="Line / Connector (L)">
+          <span>--&gt;</span>
+          <span>Line</span>
+          <span class="tool-badge">L</span>
+        </button>
+        <button id="tool-button" class="tool-btn" data-tool="button" title="Button (B)">
+          <span>[B]</span>
+          <span>Button</span>
+          <span class="tool-badge">B</span>
+        </button>
+        <button id="tool-input" class="tool-btn" data-tool="input" title="Input Field (I)">
+          <span>[_]</span>
+          <span>Input</span>
+          <span class="tool-badge">I</span>
+        </button>
+        <button id="tool-select-widget" class="tool-btn" data-tool="select" title="Select Dropdown (S)">
+          <span>[v]</span>
+          <span>Dropdown</span>
+        </button>
+        <button id="tool-toggle" class="tool-btn" data-tool="toggle" title="Toggle Switch (G)">
+          <span>(-o)</span>
+          <span>Toggle</span>
+        </button>
+        <button id="tool-divider" class="tool-btn" data-tool="divider" title="Divider (D)">
+          <span>--</span>
+          <span>Divider</span>
+          <span class="tool-badge">D</span>
+        </button>
+        <button id="tool-text" class="tool-btn" data-tool="text" title="Text Label (T)">
+          <span>T</span>
+          <span>Text</span>
+          <span class="tool-badge">T</span>
+        </button>
+      </nav>
+
+      <!-- Screen / Viewport Device Preset Selector -->
+      <div class="tool-group" style="margin-left: 4px;" aria-label="Device Screen Size">
+        <select id="screen-select" class="field-select" style="padding: 4px 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
+          <optgroup label="Mobile (Phones)">
+            <option value="mobile-standard" selected>[|] Phone (32 × 30)</option>
+            <option value="mobile-compact">[|] Phone Compact (28 × 24)</option>
+            <option value="mobile-large">[|] Phone Max (36 × 34)</option>
+          </optgroup>
+          <optgroup label="Web Apps & Desktop">
+            <option value="desktop-standard">[=] Web App 1080p (84 × 34)</option>
+            <option value="desktop-compact">[=] Web App Laptop (72 × 28)</option>
+            <option value="desktop-wide">[==] Web App Ultrawide (96 × 40)</option>
+          </optgroup>
+          <optgroup label="Tablets">
+            <option value="tablet-portrait">[#] Tablet Portrait (48 × 36)</option>
+            <option value="tablet-landscape">[=] Tablet Landscape (64 × 36)</option>
+          </optgroup>
+          <optgroup label="Wearables">
+            <option value="watch-compact">(o) Smartwatch (20 × 14)</option>
+          </optgroup>
+          <optgroup label="Dynamic">
+            <option value="auto">[*] Auto-Fit Content</option>
+          </optgroup>
+        </select>
+        <button id="btn-orientation" class="btn-tool" title="Rotate Orientation (Portrait &lt;-&gt; Landscape)">
+          <span id="orientation-icon">[|]</span>
+        </button>
+      </div>
+
+      <!-- Right Actions & Presets -->
+      <div class="toolbar-right">
+        <span id="render-timer" class="tool-badge" style="color: var(--brand-primary); font-weight: 600;" title="Rasterization frame budget">0.1ms (&lt; 2ms)</span>
+
+        <button id="btn-undo" class="btn-tool" title="Undo (Cmd+Z)">&lt;-</button>
+        <button id="btn-redo" class="btn-tool" title="Redo (Cmd+Shift+Z)">-&gt;</button>
+        <button id="btn-duplicate" class="btn-tool" title="Duplicate (Cmd+D)">[+] Dup</button>
+        <button id="btn-clear" class="btn-tool" title="Clear Canvas">[x] Clear</button>
+
+        <!-- Template starter helper -->
+        <select id="preset-select" class="field-select" style="padding: 3px 6px; font-size: 0.75rem;">
+          <option value="" disabled selected>Starter Templates...</option>
+          <option value="mobile-app">[|] Mobile Banking App</option>
+          <option value="dashboard">[=] Web Dashboard</option>
+          <option value="login-modal">[*] Sign In Dialog</option>
+          <option value="watch-glance">(o) Smartwatch Glance</option>
+        </select>
+
+        <button id="theme-toggle" class="btn-tool" title="Toggle Dark/Light Theme">
+          <span id="theme-icon">[*]</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Studio Workspace -->
+    <main class="studio-main">
+      <!-- Left Panel: Layers / Components -->
+      <aside class="studio-panel">
+        <div class="sidebar-tabs">
+          <button id="tab-layers" class="sidebar-tab-btn active">Layers</button>
+          <button id="tab-components" class="sidebar-tab-btn">Components</button>
+        </div>
+
+        <!-- Layers View -->
+        <div id="view-layers" class="panel-scrollable">
+          <div id="tree-container" role="tree" aria-label="Layers Hierarchy"></div>
+        </div>
+
+        <!-- Components Asset Gallery -->
+        <div id="view-components" class="panel-scrollable" style="display: none;">
+          <div class="component-section">
+            <span class="component-section-title">Containers & Layout</span>
+            <div class="component-card-grid">
+              <div class="component-card" draggable="true" data-create-component="container">
+                <div class="component-card-header">
+                  <span>Frame / Box</span>
+                  <span class="tool-badge">F</span>
+                </div>
+                <div class="component-card-preview">┌─ Frame ──┐</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="divider">
+                <div class="component-card-header">
+                  <span>Divider Line</span>
+                  <span class="tool-badge">D</span>
+                </div>
+                <div class="component-card-preview">├──────────┤</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="circle">
+                <div class="component-card-header">
+                  <span>Circle / Avatar</span>
+                  <span class="tool-badge">O</span>
+                </div>
+                <div class="component-card-preview">( Avatar )</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="line">
+                <div class="component-card-header">
+                  <span>Connector Line</span>
+                  <span class="tool-badge">L</span>
+                </div>
+                <div class="component-card-preview">──────►</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="component-section">
+            <span class="component-section-title">Form Controls</span>
+            <div class="component-card-grid">
+              <div class="component-card" draggable="true" data-create-component="button-primary">
+                <div class="component-card-header">
+                  <span>Primary Button</span>
+                  <span class="tool-badge">B</span>
+                </div>
+                <div class="component-card-preview">[# Action #]</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="button-secondary">
+                <div class="component-card-header">
+                  <span>Secondary Button</span>
+                </div>
+                <div class="component-card-preview">[ Action ]</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="input">
+                <div class="component-card-header">
+                  <span>Input Field</span>
+                  <span class="tool-badge">I</span>
+                </div>
+                <div class="component-card-preview">[ Text...      ]</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="select">
+                <div class="component-card-header">
+                  <span>Dropdown Select</span>
+                </div>
+                <div class="component-card-preview">[ Value      v ]</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="checkbox">
+                <div class="component-card-header">
+                  <span>Checkbox</span>
+                </div>
+                <div class="component-card-preview">[x] Remember me</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="radio">
+                <div class="component-card-header">
+                  <span>Radio Option</span>
+                </div>
+                <div class="component-card-preview">(•) Option A</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="toggle">
+                <div class="component-card-header">
+                  <span>Toggle Switch</span>
+                </div>
+                <div class="component-card-preview">(─o) Enabled</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="component-section">
+            <span class="component-section-title">Navigation & Structure</span>
+            <div class="component-card-grid">
+              <div class="component-card" draggable="true" data-create-component="tabs">
+                <div class="component-card-header">
+                  <span>Tabs Bar</span>
+                </div>
+                <div class="component-card-preview">[ Tab 1 ]  Tab 2</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="breadcrumbs">
+                <div class="component-card-header">
+                  <span>Breadcrumbs</span>
+                </div>
+                <div class="component-card-preview">Home &gt; Projects</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="component-section">
+            <span class="component-section-title">Data Display</span>
+            <div class="component-card-grid">
+              <div class="component-card" draggable="true" data-create-component="table">
+                <div class="component-card-header">
+                  <span>Data Table</span>
+                </div>
+                <div class="component-card-preview">┌────┬─────────┐</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="badge">
+                <div class="component-card-header">
+                  <span>Badge / Tag</span>
+                </div>
+                <div class="component-card-preview">&lt; Active &gt;</div>
+              </div>
+              <div class="component-card" draggable="true" data-create-component="progress">
+                <div class="component-card-header">
+                  <span>Progress Bar</span>
+                </div>
+                <div class="component-card-preview">[=====&gt;----] 50%</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="component-section">
+            <span class="component-section-title">Feedback & Alerts</span>
+            <div class="component-card-grid">
+              <div class="component-card" draggable="true" data-create-component="alert">
+                <div class="component-card-header">
+                  <span>Alert Box</span>
+                </div>
+                <div class="component-card-preview">[!] System Notice</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="component-section">
+            <span class="component-section-title">Typography</span>
+            <div class="component-card-grid">
+              <div class="component-card" draggable="true" data-create-component="text">
+                <div class="component-card-header">
+                  <span>Text Label</span>
+                  <span class="tool-badge">T</span>
+                </div>
+                <div class="component-card-preview">Title / Label</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center Drawing Canvas -->
+      <section class="studio-canvas-area" id="canvas-area">
+        <!-- Screen Flow Bar (Multi-Artboard Navigation) -->
+        <div id="screen-flow-bar" class="screen-flow-bar">
+          <div class="screen-flow-left">
+            <span class="screen-flow-label">Flow:</span>
+            <div id="screen-pills-list" class="screen-pills-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+          <div class="screen-flow-right">
+            <button id="btn-add-screen" class="btn-screen-add" title="Add New Screen / Artboard">[+] Screen</button>
+          </div>
+        </div>
+
+        <!-- Scrollable Canvas Viewport -->
+        <div id="canvas-viewport" class="canvas-viewport">
+          <div id="canvas-stage" class="canvas-stage">
+            <div class="canvas-artboard" id="artboard">
+              <!-- Artboard Device Frame Header -->
+              <div id="artboard-header" class="artboard-header">
+                <div class="artboard-header-left">
+                  <span id="artboard-icon">[|]</span>
+                  <span id="artboard-title">Phone (Standard)</span>
+                </div>
+                <span id="artboard-dims" class="artboard-dims">32 × 30 cells</span>
+              </div>
+
+              <pre id="ascii-output" class="canvas-pre" aria-label="ASCII Canvas Artboard"></pre>
+
+              <!-- Figma Selection Overlay (Positioned Absolutely Over Selected Node) -->
+              <div id="selection-overlay" class="selection-overlay" style="display: none;">
+                <div id="selection-pill" class="selection-pill">Widget • 0, 0 • 20 × 8</div>
+                <!-- 8 Resize Handles -->
+                <div class="handle nw" data-handle="nw"></div>
+                <div class="handle ne" data-handle="ne"></div>
+                <div class="handle sw" data-handle="sw"></div>
+                <div class="handle se" data-handle="se"></div>
+                <div class="handle n" data-handle="n"></div>
+                <div class="handle s" data-handle="s"></div>
+                <div class="handle w" data-handle="w"></div>
+                <div class="handle e" data-handle="e"></div>
+              </div>
+
+              <!-- Drag-to-Draw Preview Box -->
+              <div id="draw-preview" class="draw-preview-box" style="display: none;"></div>
+              <!-- Drag Marquee Selection Box -->
+              <div id="marquee-selection" class="marquee-selection-box" style="display: none;"></div>
+              <!-- Multi-selection Outlines Container -->
+              <div id="multi-selection-container"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Canvas Zoom HUD -->
+        <div id="zoom-controls" class="canvas-zoom-hud" role="toolbar" aria-label="Canvas Zoom Controls">
+          <button id="btn-zoom-out" class="zoom-btn" title="Zoom Out (Cmd/Ctrl + -)">[-]</button>
+          <button id="btn-zoom-level" class="zoom-level-btn" title="Reset Zoom / Cycle (Cmd/Ctrl + 0)">100%</button>
+          <button id="btn-zoom-in" class="zoom-btn" title="Zoom In (Cmd/Ctrl + +)">[+]</button>
+          <button id="btn-zoom-fit" class="zoom-btn" title="Fit to Screen (Shift + 1)">[=]</button>
+        </div>
+      </section>
+
+      <!-- Right Panel: Design & Spec Inspector -->
+      <aside class="studio-panel panel-right">
+        <div class="sidebar-tabs">
+          <button id="tab-design" class="sidebar-tab-btn active" data-tab="preview">Design</button>
+          <button id="tab-spec" class="sidebar-tab-btn" data-tab="markdown">Spec (MD)</button>
+          <button id="tab-json" class="sidebar-tab-btn" data-tab="json">AST JSON</button>
+          <button id="btn-toggle-wide" class="sidebar-tab-btn btn-wide-toggle" title="Toggle Wide View (Expand Panel)" style="flex: 0 0 40px;">&lt;&gt;</button>
+        </div>
+
+        <!-- Design Inspector -->
+        <div id="view-design" class="panel-scrollable">
+          <div id="no-selection" style="color: var(--text-muted); text-align: center; margin-top: 32px; font-size: 0.8rem;">
+            Click any widget on the canvas or pick a tool from the top toolbar to draw.
+          </div>
+
+          <div id="inspector-form" style="display: none; flex-direction: column; gap: 14px;">
+            <!-- Multi-Selection Badge / Status -->
+            <div id="selection-status-badge" style="display: none; padding: 4px 8px; background-color: rgba(168, 46, 32, 0.08); border-left: 2px solid var(--brand-primary); font-size: 0.76rem; font-weight: 600; color: var(--brand-primary);">
+              <span id="selection-count-text">1 widget selected</span>
+            </div>
+
+            <!-- Alignment & Distribution Tools -->
+            <div class="inspector-group" id="alignment-group">
+              <span class="inspector-title">Align & Distribute</span>
+              <div class="stepper-btn-row">
+                <button id="btn-align-left" class="btn-tool" title="Align Left">|&lt;-</button>
+                <button id="btn-align-center" class="btn-tool" title="Align Horizontal Center">-|-</button>
+                <button id="btn-align-right" class="btn-tool" title="Align Right">-&gt;|</button>
+                <button id="btn-align-top" class="btn-tool" title="Align Top">^</button>
+                <button id="btn-align-middle" class="btn-tool" title="Align Vertical Center">=</button>
+                <button id="btn-align-bottom" class="btn-tool" title="Align Bottom">v</button>
+              </div>
+              <div class="stepper-btn-row" style="margin-top: 4px;">
+                <button id="btn-distribute-h" class="btn-tool" style="font-size: 0.7rem;" title="Distribute Horizontally">||| Dist H</button>
+                <button id="btn-distribute-v" class="btn-tool" style="font-size: 0.7rem;" title="Distribute Vertically">=== Dist V</button>
+              </div>
+            </div>
+
+            <!-- Geometry / Coordinates -->
+            <div class="inspector-group">
+              <span class="inspector-title">Position & Dimensions</span>
+              <div class="input-row">
+                <div class="coord-field">
+                  <span class="coord-label">X</span>
+                  <input id="prop-x" class="coord-input" type="number" min="0" />
+                </div>
+                <div class="coord-field">
+                  <span class="coord-label">Y</span>
+                  <input id="prop-y" class="coord-input" type="number" min="0" />
+                </div>
+              </div>
+              <div class="input-row">
+                <div class="coord-field">
+                  <span class="coord-label">W</span>
+                  <input id="prop-w" class="coord-input" type="number" min="1" />
+                </div>
+                <div class="coord-field">
+                  <span class="coord-label">H</span>
+                  <input id="prop-h" class="coord-input" type="number" min="1" />
+                </div>
+              </div>
+              <!-- Nudgers -->
+              <div class="stepper-btn-row" style="margin-top: 4px;">
+                <button id="nudge-left" class="btn-tool" title="Move Left (&lt;-)">&lt;-</button>
+                <button id="nudge-right" class="btn-tool" title="Move Right (-&gt;)">-&gt;</button>
+                <button id="nudge-up" class="btn-tool" title="Move Up (^)">^</button>
+                <button id="nudge-down" class="btn-tool" title="Move Down (v)">v</button>
+              </div>
+              <div class="stepper-btn-row">
+                <button id="resize-w-minus" class="btn-tool" title="Decrease Width">-W</button>
+                <button id="resize-w-plus" class="btn-tool" title="Increase Width">+W</button>
+                <button id="resize-h-minus" class="btn-tool" title="Decrease Height">-H</button>
+                <button id="resize-h-plus" class="btn-tool" title="Increase Height">+H</button>
+              </div>
+            </div>
+
+            <!-- Content / Label -->
+            <div class="inspector-group">
+              <span class="inspector-title">Content & Variant</span>
+              <input id="prop-label" class="field-input" type="text" placeholder="Widget text/label..." />
+
+              <div id="meta-variant-group" style="display: none;">
+                <select id="prop-variant" class="field-select" style="width: 100%;">
+                  <option value="secondary">Secondary: [ Label ]</option>
+                  <option value="primary">Primary: [# Label #]</option>
+                </select>
+              </div>
+
+              <div id="meta-checked-group" style="display: none;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.8rem;">
+                  <input id="prop-checked" type="checkbox" />
+                  <span>Checked / Active</span>
+                </label>
+              </div>
+
+              <div id="meta-border-style-group" style="display: none; margin-top: 6px;">
+                <label for="prop-border-style" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Border Style:</label>
+                <select id="prop-border-style" class="field-select" style="width: 100%;">
+                  <option value="single">Single (┌─┐ Sharp)</option>
+                  <option value="rounded">Rounded (╭─╮ Smooth)</option>
+                  <option value="double">Double (╔═╗ Modal)</option>
+                  <option value="dashed">Dashed (+-+ Dropzone)</option>
+                  <option value="minimal">Minimal (── Header only)</option>
+                </select>
+              </div>
+
+              <div id="meta-line-group" style="display: none; margin-top: 6px;">
+                <label for="prop-line-ending" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Line Ending:</label>
+                <select id="prop-line-ending" class="field-select" style="width: 100%; margin-bottom: 4px;">
+                  <option value="arrow">Arrow End (──►)</option>
+                  <option value="both">Both Ends (◄──►)</option>
+                  <option value="none">Plain Line (──────)</option>
+                </select>
+                <label for="prop-line-direction" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Direction / Shape:</label>
+                <select id="prop-line-direction" class="field-select" style="width: 100%;">
+                  <option value="horizontal">Horizontal (──►)</option>
+                  <option value="vertical">Vertical (│ ▼)</option>
+                  <option value="elbow">Elbow Connector (┌─►)</option>
+                  <option value="diagonal-down">Diagonal Down (\)</option>
+                  <option value="diagonal-up">Diagonal Up (/)</option>
+                </select>
+              </div>
+
+              <div id="meta-tabs-group" style="display: none; margin-top: 6px;">
+                <label for="prop-tabs-variant" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Tabs Style:</label>
+                <select id="prop-tabs-variant" class="field-select" style="width: 100%; margin-bottom: 4px;">
+                  <option value="boxed">Boxed: [ Tab 1 ] Tab 2</option>
+                  <option value="underlined">Underlined: ──────</option>
+                  <option value="pills">Pills: (• Tab 1 )</option>
+                </select>
+                <label for="prop-tabs-active" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Active Tab Index:</label>
+                <input id="prop-tabs-active" type="number" min="0" max="10" value="0" class="field-input" style="width: 100%;" />
+              </div>
+
+              <div id="meta-badge-group" style="display: none; margin-top: 6px;">
+                <label for="prop-badge-variant" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Badge Style:</label>
+                <select id="prop-badge-variant" class="field-select" style="width: 100%;">
+                  <option value="tag">Tag: &lt; Label &gt;</option>
+                  <option value="pill">Pill: ( Label )</option>
+                  <option value="status">Status: (*) Label</option>
+                  <option value="counter">Counter: ( 12 )</option>
+                </select>
+              </div>
+
+              <div id="meta-progress-group" style="display: none; margin-top: 6px;">
+                <label for="prop-progress-variant" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Progress Style:</label>
+                <select id="prop-progress-variant" class="field-select" style="width: 100%; margin-bottom: 4px;">
+                  <option value="bar">Bar: [====&gt;----]</option>
+                  <option value="slider">Slider: ───(o)───</option>
+                </select>
+                <label for="prop-progress-val" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Value (%):</label>
+                <input id="prop-progress-val" type="number" min="0" max="100" value="50" class="field-input" style="width: 100%;" />
+              </div>
+
+              <div id="meta-alert-group" style="display: none; margin-top: 6px;">
+                <label for="prop-alert-variant" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Alert Severity:</label>
+                <select id="prop-alert-variant" class="field-select" style="width: 100%;">
+                  <option value="info">Info: [i]</option>
+                  <option value="success">Success: [v]</option>
+                  <option value="warning">Warning: [!]</option>
+                  <option value="danger">Danger: [x]</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- AI Agent Prototyping Annotations -->
+            <div class="inspector-group">
+              <span class="inspector-title">Agent Annotations</span>
+              <input id="prop-action" class="field-input" type="text" placeholder="Action: e.g. submitForm" />
+              <input id="prop-binding" class="field-input" type="text" placeholder="Binding: e.g. auth.email" />
+              <input id="prop-layout" class="field-input" type="text" placeholder="Layout: e.g. flex-1, sticky-top" />
+              <div class="transition-field-group" style="margin-top: 6px;">
+                <label for="prop-transition" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Flow Navigates To:</label>
+                <select id="prop-transition" class="field-select" style="width: 100%; font-size: 0.78rem;">
+                  <option value="">(None - No transition)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Layer Ordering & Actions -->
+            <div class="inspector-group">
+              <span class="inspector-title">Layer Depth & Actions</span>
+              <div class="input-row">
+                <button id="btn-forward" class="btn-tool">Bring Forward</button>
+                <button id="btn-backward" class="btn-tool">Send Backward</button>
+              </div>
+              <button id="btn-delete-node" class="btn-tool" style="color: var(--brand-danger); border-color: var(--brand-danger); margin-top: 4px;">Delete Widget</button>
+            </div>
+
+            <!-- Technical Props -->
+            <div class="inspector-group" style="opacity: 0.6;">
+              <span class="inspector-title">Layer ID</span>
+              <input id="prop-id" class="field-input" type="text" readonly style="font-family: var(--font-mono); font-size: 0.72rem;" />
+              <select id="prop-type" class="field-select" style="display: none;">
+                <option value="container">container</option>
+                <option value="button">button</option>
+                <option value="input">input</option>
+                <option value="select">select</option>
+                <option value="checkbox">checkbox</option>
+                <option value="radio">radio</option>
+                <option value="toggle">toggle</option>
+                <option value="text">text</option>
+                <option value="divider">divider</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Spec (WIREFRAME.md) View -->
+        <div id="view-markdown" class="panel-scrollable" style="display: none;">
+          <div class="copy-section-header">
+            <div class="copy-buttons-row">
+              <button id="btn-copy" class="btn-zen-primary" title="Copy full WIREFRAME.md with AI Agent annotations">[#] Copy Spec</button>
+              <button id="btn-copy-ascii" class="btn-zen-secondary" title="Copy pure ASCII wireframe text only">[:] Copy ASCII</button>
+              <button id="btn-download" class="btn-zen-tool" title="Export WIREFRAME.md file">[v] Export .md</button>
+              <button id="btn-export-svg" class="btn-zen-tool" title="Export vector SVG image">[v] Export SVG</button>
+              <button id="btn-export-png" class="btn-zen-tool" title="Export high-res PNG image">[v] Export PNG</button>
+            </div>
+            <div class="spec-format-pills">
+              <button id="btn-format-md" class="format-pill active" title="Show complete Markdown spec">WIREFRAME.md</button>
+              <button id="btn-format-ascii" class="format-pill" title="Show pure ASCII characters only">Raw ASCII</button>
+              <button id="btn-format-svg" class="format-pill" title="Show vector SVG code">Vector SVG</button>
+              <span class="copy-status-hint">* Selectable for manual copy</span>
+            </div>
+          </div>
+          <textarea id="markdown-output" class="zen-code-output" readonly spellcheck="false" placeholder="Generating wireframe specification..."></textarea>
+        </div>
+
+        <!-- AST JSON View -->
+        <div id="view-json" class="panel-scrollable" style="display: none;">
+          <textarea id="json-input" class="field-input" style="height: calc(100vh - 180px); font-family: var(--font-mono); font-size: 0.72rem; resize: none;" spellcheck="false"></textarea>
+          <button id="btn-apply-json" class="btn-tool" style="background-color: var(--brand-primary); color: #fff; margin-top: 6px;">Apply JSON</button>
+        </div>
+      </aside>
+    </main>
+
+    <!-- App Script -->
+    <script type="module" src="./src/editor/main.ts"></script>
+  </body>
+</html>

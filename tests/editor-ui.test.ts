@@ -1123,4 +1123,344 @@ describe('Editor UI Realistic User Interaction Suite', () => {
     expect(app.specFormat).toBe('svg');
     expect(app.markdownOutput.value).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
   });
+
+  it('Case 25: Dot grid toggle via button and shortcut', () => {
+    expect(app.btnToggleGrid).toBeDefined();
+    expect(app.state.isGridVisible).toBe(false);
+    expect(app.artboard.classList.contains('show-grid')).toBe(false);
+
+    // Click toggle grid button
+    app.btnToggleGrid?.click();
+    expect(app.state.isGridVisible).toBe(true);
+    expect(app.artboard.classList.contains('show-grid')).toBe(true);
+
+    // Shortcut Cmd+' to toggle off
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: "'", metaKey: true }));
+    expect(app.state.isGridVisible).toBe(false);
+    expect(app.artboard.classList.contains('show-grid')).toBe(false);
+  });
+
+  it('Case 26: In-canvas direct double-click text editing', () => {
+    app.state.clearCanvas();
+    const btnId = 'test-btn';
+    app.state.setNodes([
+      { id: btnId, type: 'button', rect: { x: 2, y: 2, w: 12, h: 1 }, zIndex: 1, label: 'Initial' },
+    ]);
+
+    const targetNode = app.state.nodes[0];
+    app.startInlineEdit(targetNode);
+
+    const input = app.artboard.querySelector('.inline-cell-editor') as HTMLInputElement;
+    expect(input).toBeDefined();
+    expect(input.value).toBe('Initial');
+
+    // Change value and press Enter
+    input.value = 'Updated Label';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+    const updated = app.state.nodes.find((n) => n.id === btnId);
+    expect(updated?.label).toBe('Updated Label');
+    expect(app.artboard.querySelector('.inline-cell-editor')).toBeNull();
+  });
+
+  it('Case 27: Table inspector manages columns and rows', () => {
+    app.state.clearCanvas();
+    const tableId = 'test-tbl';
+    app.state.setNodes([
+      {
+        id: tableId,
+        type: 'table',
+        rect: { x: 0, y: 0, w: 30, h: 5 },
+        zIndex: 1,
+        meta: {
+          tableColumns: [
+            { title: 'A', width: 8, align: 'left' },
+            { title: 'B', width: 10, align: 'left' },
+          ],
+          tableRows: [['1', '2']],
+        },
+      },
+    ]);
+
+    app.state.selectNode(tableId);
+    expect(app.metaTableGroup?.style.display).toBe('block');
+    expect(app.tableColsList?.children.length).toBe(2);
+    expect(app.tableRowsList?.children.length).toBe(1);
+
+    // Add Column
+    app.btnAddTableCol?.click();
+    let tbl = app.state.nodes.find((n) => n.id === tableId);
+    expect(tbl?.meta?.tableColumns?.length).toBe(3);
+
+    // Add Row
+    app.btnAddTableRow?.click();
+    tbl = app.state.nodes.find((n) => n.id === tableId);
+    expect(tbl?.meta?.tableRows?.length).toBe(2);
+  });
+
+  it('Case 28: Interactive Play Mode toggle via button and shortcut', () => {
+    expect(app.btnPlayMode).toBeDefined();
+    expect(app.state.isPlayMode).toBe(false);
+    expect(document.body.classList.contains('play-mode-active')).toBe(false);
+
+    // Enter play mode via button
+    app.btnPlayMode?.click();
+    expect(app.state.isPlayMode).toBe(true);
+    expect(document.body.classList.contains('play-mode-active')).toBe(true);
+    expect(app.playModeHud?.style.display).toBe('flex');
+
+    // Exit via Escape shortcut
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(app.state.isPlayMode).toBe(false);
+    expect(document.body.classList.contains('play-mode-active')).toBe(false);
+    expect(app.playModeHud?.style.display).toBe('none');
+
+    // Toggle via Cmd+P shortcut
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', metaKey: true }));
+    expect(app.state.isPlayMode).toBe(true);
+
+    // Exit via Exit button
+    app.btnPlayExit?.click();
+    expect(app.state.isPlayMode).toBe(false);
+  });
+
+  it('Case 29: In Play Mode, navigates across screens and uses Back button', () => {
+    const s1Id = app.state.activeScreenId;
+    const s2Id = app.state.addScreen('Screen 2');
+
+    // Add button on Screen 1 pointing to Screen 2
+    app.state.switchScreen(s1Id);
+    app.state.setNodes([
+      {
+        id: 'btn-next',
+        type: 'button',
+        rect: { x: 2, y: 2, w: 14, h: 1 },
+        zIndex: 1,
+        label: 'Go Screen 2',
+        meta: { transitionTarget: s2Id },
+      },
+    ]);
+
+    // Enter play mode
+    app.state.enterPlayMode();
+    expect(app.state.activeScreenId).toBe(s1Id);
+
+    // Simulate clicking on the button in Play mode
+    vi.spyOn(app, 'clientToCell').mockReturnValue({ cellX: 4, cellY: 2 });
+
+    app.artboard.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        clientX: 50,
+        clientY: 50,
+        bubbles: true,
+      })
+    );
+
+    expect(app.state.activeScreenId).toBe(s2Id);
+    expect(app.playScreenTitle?.textContent).toBe('Screen 2');
+
+    // Click Back button
+    app.btnPlayBack?.click();
+    expect(app.state.activeScreenId).toBe(s1Id);
+  });
+
+  it('Case 30: In Play Mode, clicking form controls toggles state live', () => {
+    app.state.clearCanvas();
+    const chkId = 'chk-1';
+    app.state.setNodes([
+      {
+        id: chkId,
+        type: 'checkbox',
+        rect: { x: 2, y: 2, w: 12, h: 1 },
+        zIndex: 1,
+        label: 'Option',
+        meta: { checked: false },
+      },
+    ]);
+
+    app.state.enterPlayMode();
+
+    // Mock clientToCell to click on checkbox at (x: 3, y: 2)
+    vi.spyOn(app, 'clientToCell').mockReturnValue({ cellX: 3, cellY: 2 });
+
+    app.artboard.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        clientX: 50,
+        clientY: 50,
+        bubbles: true,
+      })
+    );
+
+    const chkNode = app.state.nodes.find((n) => n.id === chkId);
+    expect(chkNode?.meta?.checked).toBe(true);
+  });
+
+  it('Case 31: Switches to Code tab and toggles multi-target code generation', () => {
+    app.state.clearCanvas();
+    app.state.setNodes([
+      {
+        id: 'box-1',
+        type: 'container',
+        rect: { x: 0, y: 0, w: 20, h: 8 },
+        zIndex: 0,
+        label: 'Card',
+      },
+      {
+        id: 'btn-1',
+        type: 'button',
+        rect: { x: 2, y: 2, w: 10, h: 1 },
+        zIndex: 1,
+        label: 'Submit',
+      },
+    ]);
+
+    // 1. Click Code Tab
+    app.tabCode?.click();
+    expect(app.state.rightTab).toBe('code');
+    expect(app.viewCode?.style.display).toBe('block');
+    expect(app.codeOutput?.value).toContain('export function');
+    expect(app.codeOutput?.value).toContain('className=');
+
+    // 2. Switch to HTML/CSS
+    if (app.codeTargetSelect) {
+      app.codeTargetSelect.value = 'html-css';
+      app.codeTargetSelect.dispatchEvent(new Event('change'));
+      expect(app.state.codeTarget).toBe('html-css');
+      expect(app.codeOutput?.value).toContain('<!DOCTYPE html>');
+    }
+
+    // 3. Switch to Python Textual
+    if (app.codeTargetSelect) {
+      app.codeTargetSelect.value = 'textual';
+      app.codeTargetSelect.dispatchEvent(new Event('change'));
+      expect(app.state.codeTarget).toBe('textual');
+      expect(app.codeOutput?.value).toContain('from textual.app import App');
+    }
+
+    // 4. Switch to Go Bubbletea
+    if (app.codeTargetSelect) {
+      app.codeTargetSelect.value = 'bubbletea';
+      app.codeTargetSelect.dispatchEvent(new Event('change'));
+      expect(app.state.codeTarget).toBe('bubbletea');
+      expect(app.codeOutput?.value).toContain('package main');
+    }
+
+    // 5. Copy Code button
+    app.btnCopyCode?.click();
+    const toast = document.querySelector('.toast');
+    expect(toast?.textContent).toContain('Copied code');
+  });
+
+  it('Case 32: Configures container stack auto-layout and executes reflow', () => {
+    app.state.clearCanvas();
+    const cId = 'box-stack';
+    const b1Id = 'btn-a';
+    const b2Id = 'btn-b';
+
+    app.state.setNodes([
+      {
+        id: cId,
+        type: 'container',
+        rect: { x: 0, y: 0, w: 30, h: 15 },
+        zIndex: 0,
+        label: 'Stack Box',
+      },
+      {
+        id: b1Id,
+        type: 'button',
+        rect: { x: 5, y: 10, w: 10, h: 1 },
+        zIndex: 1,
+        label: 'Alpha',
+      },
+      {
+        id: b2Id,
+        type: 'button',
+        rect: { x: 5, y: 3, w: 10, h: 1 },
+        zIndex: 1,
+        label: 'Beta',
+      },
+    ]);
+
+    // Select container
+    app.state.selectNode(cId);
+    expect(app.metaStackGroup?.style.display).toBe('block');
+
+    // Change stack layout to vertical
+    if (app.propStackLayout) {
+      app.propStackLayout.value = 'vertical';
+      app.propStackLayout.dispatchEvent(new Event('change'));
+    }
+
+    // Click Reflow button
+    app.btnReflowStack?.click();
+
+    const nodes = app.state.nodes;
+    const b1 = nodes.find((n) => n.id === b1Id);
+    const b2 = nodes.find((n) => n.id === b2Id);
+    expect(b1).toBeDefined();
+    expect(b2).toBeDefined();
+    // In vertical stack, Beta (y: 3) should come before Alpha (y: 10)
+    expect(b2!.rect.y).toBeLessThan(b1!.rect.y);
+  });
+
+  it('Case 33: Synthesizes wireframe from AI prompt modal dialog', () => {
+    // Open Prompt Modal
+    app.btnPromptAi?.click();
+    expect(app.modalPrompt).toBeDefined();
+
+    // Fill Prompt Input
+    if (app.promptInput) {
+      app.promptInput.value = 'Create a simple login form with username and submit';
+    }
+
+    // Submit Prompt
+    app.btnSubmitPrompt?.click();
+
+    expect(app.state.nodes.length).toBeGreaterThan(0);
+    const allNodes: any[] = [];
+    const collect = (list: any[]) => {
+      for (const n of list) {
+        allNodes.push(n);
+        if (n.children) collect(n.children);
+      }
+    };
+    collect(app.state.nodes);
+    const hasInput = allNodes.some((n) => n.type === 'input');
+    const hasButton = allNodes.some((n) => n.type === 'button');
+    expect(hasInput).toBe(true);
+    expect(hasButton).toBe(true);
+  });
+
+  it('Case 34: Imports raw ASCII wireframe into editable scene nodes', () => {
+    const rawAscii = `
+┌── Dashboard ─────────┐
+│ [ Search...        ] │
+│                      │
+│ [# Save #]           │
+└──────────────────────┘
+`;
+
+    // Open Import Modal
+    app.btnImportAscii?.click();
+    expect(app.modalImport).toBeDefined();
+
+    // Fill Input
+    if (app.importAsciiInput) {
+      app.importAsciiInput.value = rawAscii;
+    }
+
+    // Submit Import
+    app.btnSubmitImport?.click();
+
+    expect(app.state.nodes.length).toBeGreaterThan(0);
+    const container = app.state.nodes.find((n) => n.type === 'container');
+    const input = app.state.nodes.find((n) => n.type === 'input');
+    const button = app.state.nodes.find((n) => n.type === 'button');
+
+    expect(container).toBeDefined();
+    expect(container?.label).toBe('Dashboard');
+    expect(input).toBeDefined();
+    expect(button).toBeDefined();
+    expect(button?.meta?.variant).toBe('primary');
+  });
 });

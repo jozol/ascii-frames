@@ -646,6 +646,200 @@ body {
     0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* Dot-Matrix Cell Grid Overlay */
+.canvas-artboard.show-grid {
+  background-image: radial-gradient(rgba(145, 130, 115, 0.4) 1px, transparent 1px);
+  background-size: 8.43px 18px;
+  background-position: 24px 24px;
+}
+
+[data-theme="dark"] .canvas-artboard.show-grid,
+:root:not([data-theme="light"]) .canvas-artboard.show-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+}
+
+/* In-Canvas Direct Monospace Cell Editor */
+.inline-cell-editor {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--brand-primary);
+  border-radius: 2px;
+  padding: 0 4px;
+  z-index: 250;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* Table Inspector Forms */
+.table-col-item,
+.table-row-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--bg-surface-elevated);
+  padding: 3px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--border-subtle);
+}
+
+.table-col-item input,
+.table-row-item input {
+  font-size: 0.72rem;
+  padding: 2px 4px;
+}
+
+/* Interactive Play Mode Presentation Styles */
+body.play-mode-active .toolbar-header,
+body.play-mode-active .studio-panel,
+body.play-mode-active .screen-flow-bar,
+body.play-mode-active .canvas-zoom-hud,
+body.play-mode-active #selection-overlay,
+body.play-mode-active #draw-preview {
+  display: none !important;
+}
+
+body.play-mode-active .studio-canvas-area {
+  flex: 1 1 100%;
+  width: 100vw;
+  height: 100vh;
+}
+
+.play-mode-hud {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  padding: 6px 14px;
+  z-index: 500;
+  user-select: none;
+}
+
+.btn-play-hud {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.btn-play-hud:hover {
+  background-color: var(--brand-primary);
+  color: #fff;
+  border-color: var(--brand-primary);
+}
+
+.play-screen-title {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--text-primary);
+}
+
+.play-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Studio Dialog Modals */
+.studio-dialog {
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  padding: 0;
+  max-width: 520px;
+  width: 90vw;
+  margin: auto;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.studio-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.dialog-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  gap: 12px;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dialog-title {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dialog-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.dialog-close-btn:hover {
+  color: var(--brand-primary);
+}
+
+.dialog-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.dialog-textarea {
+  width: 100%;
+  height: 120px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.dialog-textarea.font-mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: pre;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .artboard-header {
   display: flex;
   align-items: center;

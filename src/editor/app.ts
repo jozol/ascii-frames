@@ -1,6 +1,8 @@
 import { EditorState, EditorTool, LeftPanelTab, RightPanelTab, TabType } from './editor-state.js';
 import { SceneNode, WidgetType, Rect } from '../core/ast/types.js';
 import { findNodeAt, findNode, addNode } from '../core/ast/mutations.js';
+import { generateWireframeFromPrompt } from '../core/serializer/prompt-to-ast.js';
+import { parseAsciiToNodes } from '../core/serializer/ascii-to-ast.js';
 
 export class EditorApp {
   public state: EditorState;
@@ -61,10 +63,15 @@ export class EditorApp {
   // Right Inspector Elements
   public tabDesign!: HTMLButtonElement;
   public tabSpec!: HTMLButtonElement;
+  public tabCode?: HTMLButtonElement;
   public tabJson!: HTMLButtonElement;
   public viewDesign!: HTMLElement;
   public viewMarkdown!: HTMLElement;
+  public viewCode?: HTMLElement;
   public viewJson!: HTMLElement;
+  public codeTargetSelect?: HTMLSelectElement;
+  public btnCopyCode?: HTMLButtonElement;
+  public codeOutput?: HTMLTextAreaElement;
 
   public noSelection!: HTMLElement;
   public inspectorForm!: HTMLElement;
@@ -112,6 +119,37 @@ export class EditorApp {
 
   public metaAlertGroup!: HTMLElement;
   public propAlertVariant!: HTMLSelectElement;
+
+  public metaTableGroup?: HTMLElement;
+  public tableColsList?: HTMLElement;
+  public btnAddTableCol?: HTMLButtonElement;
+  public tableRowsList?: HTMLElement;
+  public btnAddTableRow?: HTMLButtonElement;
+  public btnToggleGrid?: HTMLButtonElement;
+
+  public btnPlayMode?: HTMLButtonElement;
+  public playModeHud?: HTMLElement;
+  public btnPlayBack?: HTMLButtonElement;
+  public playScreenTitle?: HTMLElement;
+  public btnPlayExit?: HTMLButtonElement;
+  public propFillShading?: HTMLSelectElement;
+
+  public metaStackGroup?: HTMLElement;
+  public propStackLayout?: HTMLSelectElement;
+  public propStackGap?: HTMLInputElement;
+  public btnReflowStack?: HTMLButtonElement;
+
+  public btnPromptAi?: HTMLButtonElement;
+  public btnImportAscii?: HTMLButtonElement;
+  public modalPrompt?: HTMLDialogElement;
+  public btnClosePrompt?: HTMLButtonElement;
+  public promptInput?: HTMLTextAreaElement;
+  public btnSubmitPrompt?: HTMLButtonElement;
+
+  public modalImport?: HTMLDialogElement;
+  public btnCloseImport?: HTMLButtonElement;
+  public importAsciiInput?: HTMLTextAreaElement;
+  public btnSubmitImport?: HTMLButtonElement;
 
   public btnForward!: HTMLButtonElement;
   public btnBackward!: HTMLButtonElement;
@@ -242,9 +280,14 @@ export class EditorApp {
 
     this.tabDesign = this.query<HTMLButtonElement>('#tab-design');
     this.tabSpec = this.query<HTMLButtonElement>('#tab-spec');
+    this.tabCode = this.root.querySelector<HTMLButtonElement>('#tab-code') ?? undefined;
     this.tabJson = this.query<HTMLButtonElement>('#tab-json');
     this.viewDesign = this.query<HTMLElement>('#view-design');
     this.viewMarkdown = this.query<HTMLElement>('#view-markdown');
+    this.viewCode = this.root.querySelector<HTMLElement>('#view-code') ?? undefined;
+    this.codeTargetSelect = this.root.querySelector<HTMLSelectElement>('#code-target-select') ?? undefined;
+    this.btnCopyCode = this.root.querySelector<HTMLButtonElement>('#btn-copy-code') ?? undefined;
+    this.codeOutput = this.root.querySelector<HTMLTextAreaElement>('#code-output') ?? undefined;
     this.viewJson = this.query<HTMLElement>('#view-json');
 
     this.noSelection = this.query<HTMLElement>('#no-selection');
@@ -293,6 +336,37 @@ export class EditorApp {
 
     this.metaAlertGroup = this.query<HTMLElement>('#meta-alert-group');
     this.propAlertVariant = this.query<HTMLSelectElement>('#prop-alert-variant');
+
+    this.metaTableGroup = this.root.querySelector<HTMLElement>('#meta-table-group') ?? undefined;
+    this.tableColsList = this.root.querySelector<HTMLElement>('#table-cols-list') ?? undefined;
+    this.btnAddTableCol = this.root.querySelector<HTMLButtonElement>('#btn-add-table-col') ?? undefined;
+    this.tableRowsList = this.root.querySelector<HTMLElement>('#table-rows-list') ?? undefined;
+    this.btnAddTableRow = this.root.querySelector<HTMLButtonElement>('#btn-add-table-row') ?? undefined;
+    this.btnToggleGrid = this.root.querySelector<HTMLButtonElement>('#btn-toggle-grid') ?? undefined;
+
+    this.btnPlayMode = this.root.querySelector<HTMLButtonElement>('#btn-play-mode') ?? undefined;
+    this.playModeHud = this.root.querySelector<HTMLElement>('#play-mode-hud') ?? undefined;
+    this.btnPlayBack = this.root.querySelector<HTMLButtonElement>('#btn-play-back') ?? undefined;
+    this.playScreenTitle = this.root.querySelector<HTMLElement>('#play-screen-title') ?? undefined;
+    this.btnPlayExit = this.root.querySelector<HTMLButtonElement>('#btn-play-exit') ?? undefined;
+    this.propFillShading = this.root.querySelector<HTMLSelectElement>('#prop-fill-shading') ?? undefined;
+
+    this.metaStackGroup = this.root.querySelector<HTMLElement>('#meta-stack-group') ?? undefined;
+    this.propStackLayout = this.root.querySelector<HTMLSelectElement>('#prop-stack-layout') ?? undefined;
+    this.propStackGap = this.root.querySelector<HTMLInputElement>('#prop-stack-gap') ?? undefined;
+    this.btnReflowStack = this.root.querySelector<HTMLButtonElement>('#btn-reflow-stack') ?? undefined;
+
+    this.btnPromptAi = this.root.querySelector<HTMLButtonElement>('#btn-prompt-ai') ?? undefined;
+    this.btnImportAscii = this.root.querySelector<HTMLButtonElement>('#btn-import-ascii') ?? undefined;
+    this.modalPrompt = this.root.querySelector<HTMLDialogElement>('#modal-prompt') ?? undefined;
+    this.btnClosePrompt = this.root.querySelector<HTMLButtonElement>('#btn-close-prompt') ?? undefined;
+    this.promptInput = this.root.querySelector<HTMLTextAreaElement>('#prompt-input') ?? undefined;
+    this.btnSubmitPrompt = this.root.querySelector<HTMLButtonElement>('#btn-submit-prompt') ?? undefined;
+
+    this.modalImport = this.root.querySelector<HTMLDialogElement>('#modal-import') ?? undefined;
+    this.btnCloseImport = this.root.querySelector<HTMLButtonElement>('#btn-close-import') ?? undefined;
+    this.importAsciiInput = this.root.querySelector<HTMLTextAreaElement>('#import-ascii-input') ?? undefined;
+    this.btnSubmitImport = this.root.querySelector<HTMLButtonElement>('#btn-submit-import') ?? undefined;
 
     this.btnForward = this.query<HTMLButtonElement>('#btn-forward');
     this.btnBackward = this.query<HTMLButtonElement>('#btn-backward');
@@ -421,6 +495,7 @@ export class EditorApp {
     if (compType === 'badge') return { w: 10, h: 1 };
     if (compType === 'progress') return { w: 24, h: 1 };
     if (compType === 'alert') return { w: 34, h: 3 };
+    if (compType === 'icon') return { w: 6, h: 1 };
     return { w: 12, h: 1 };
   }
 
@@ -487,6 +562,9 @@ export class EditorApp {
     } else if (compType === 'alert') {
       type = 'alert';
       label = 'System update scheduled for midnight';
+    } else if (compType === 'icon') {
+      type = 'icon';
+      label = '{gear}';
     }
 
     const id = `${type}-${Date.now().toString(36)}`;
@@ -509,6 +587,190 @@ export class EditorApp {
     this.state.setTool('select');
     this.showToast(`Placed ${type} at (${newNode.rect.x}, ${newNode.rect.y})`);
     return id;
+  }
+
+  public startInlineEdit(node: SceneNode): void {
+    this.state.selectNode(node.id);
+    const existing = this.artboard.querySelector('.inline-cell-editor');
+    if (existing) existing.remove();
+
+    const { charW, charH, padLeft, padTop } = this.getCellMetrics();
+    const offsetLeft = this.asciiOutput.offsetLeft || 0;
+    const offsetTop = this.asciiOutput.offsetTop || 0;
+
+    const doc = this.root instanceof Document ? this.root : document;
+    const input = doc.createElement('input');
+    input.type = 'text';
+    input.className = 'inline-cell-editor';
+    input.value = node.label ?? '';
+
+    const leftPx = offsetLeft + padLeft + node.rect.x * charW;
+    const topPx = offsetTop + padTop + node.rect.y * charH;
+    const widthPx = Math.max(64, node.rect.w * charW);
+    const heightPx = Math.max(22, node.rect.h * charH);
+
+    input.style.left = `${leftPx}px`;
+    input.style.top = `${topPx}px`;
+    input.style.width = `${widthPx}px`;
+    input.style.height = `${Math.min(26, heightPx)}px`;
+
+    this.artboard.appendChild(input);
+    input.focus();
+    input.select();
+
+    let committed = false;
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      const newVal = input.value;
+      input.remove();
+      this.state.updateSelected({ label: newVal });
+      this.showToast(`Updated text: ${newVal}`);
+    };
+
+    input.addEventListener('keydown', (ev: KeyboardEvent) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        commit();
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        committed = true;
+        input.remove();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      commit();
+    });
+  }
+
+  private renderTableInspector(node: SceneNode): void {
+    if (!this.tableColsList || !this.tableRowsList) return;
+
+    const cols = node.meta?.tableColumns ?? [
+      { title: 'ID', width: 6, align: 'left' },
+      { title: 'Name', width: 14, align: 'left' },
+      { title: 'Status', width: 10, align: 'left' },
+    ];
+    const rows = node.meta?.tableRows ?? [
+      ['#101', 'John Doe', 'Active'],
+      ['#102', 'Jane Smith', 'Pending'],
+    ];
+
+    const doc = this.root instanceof Document ? this.root : document;
+
+    // Render columns
+    this.tableColsList.innerHTML = '';
+    cols.forEach((col, idx) => {
+      const item = doc.createElement('div');
+      item.className = 'table-col-item';
+
+      const titleInput = doc.createElement('input');
+      titleInput.type = 'text';
+      titleInput.className = 'field-input';
+      titleInput.style.flex = '1';
+      titleInput.value = col.title;
+      titleInput.placeholder = 'Col title';
+      titleInput.addEventListener('change', () => {
+        const nextCols = [...cols];
+        nextCols[idx] = { ...nextCols[idx], title: titleInput.value };
+        this.state.updateSelected({
+          meta: { ...node.meta, tableColumns: nextCols },
+        });
+      });
+
+      const widthInput = doc.createElement('input');
+      widthInput.type = 'number';
+      widthInput.min = '3';
+      widthInput.max = '60';
+      widthInput.className = 'field-input';
+      widthInput.style.width = '42px';
+      widthInput.value = String(col.width ?? 8);
+      widthInput.title = 'Col width';
+      widthInput.addEventListener('change', () => {
+        const nextCols = [...cols];
+        nextCols[idx] = { ...nextCols[idx], width: parseInt(widthInput.value, 10) || 8 };
+        this.state.updateSelected({
+          meta: { ...node.meta, tableColumns: nextCols },
+        });
+      });
+
+      const alignSelect = doc.createElement('select');
+      alignSelect.className = 'field-select';
+      alignSelect.style.width = '48px';
+      alignSelect.innerHTML = `
+        <option value="left"${col.align === 'left' ? ' selected' : ''}>L</option>
+        <option value="center"${col.align === 'center' ? ' selected' : ''}>C</option>
+        <option value="right"${col.align === 'right' ? ' selected' : ''}>R</option>
+      `;
+      alignSelect.addEventListener('change', () => {
+        const nextCols = [...cols];
+        nextCols[idx] = { ...nextCols[idx], align: alignSelect.value as any };
+        this.state.updateSelected({
+          meta: { ...node.meta, tableColumns: nextCols },
+        });
+      });
+
+      const delBtn = doc.createElement('button');
+      delBtn.className = 'btn-tool';
+      delBtn.style.padding = '2px 5px';
+      delBtn.style.color = 'var(--brand-danger)';
+      delBtn.textContent = '×';
+      delBtn.title = 'Delete Column';
+      delBtn.addEventListener('click', () => {
+        const nextCols = cols.filter((_, i) => i !== idx);
+        const nextRows = rows.map((r) => r.filter((_, i) => i !== idx));
+        this.state.updateSelected({
+          meta: { ...node.meta, tableColumns: nextCols, tableRows: nextRows },
+        });
+      });
+
+      item.appendChild(titleInput);
+      item.appendChild(widthInput);
+      item.appendChild(alignSelect);
+      item.appendChild(delBtn);
+      this.tableColsList!.appendChild(item);
+    });
+
+    // Render rows
+    this.tableRowsList.innerHTML = '';
+    rows.forEach((row, rIdx) => {
+      const item = doc.createElement('div');
+      item.className = 'table-row-item';
+
+      cols.forEach((_, cIdx) => {
+        const cellInput = doc.createElement('input');
+        cellInput.type = 'text';
+        cellInput.className = 'field-input';
+        cellInput.style.flex = '1';
+        cellInput.value = row[cIdx] ?? '';
+        cellInput.placeholder = `R${rIdx + 1}C${cIdx + 1}`;
+        cellInput.addEventListener('change', () => {
+          const nextRows = rows.map((r, i) => (i === rIdx ? [...r] : r));
+          nextRows[rIdx][cIdx] = cellInput.value;
+          this.state.updateSelected({
+            meta: { ...node.meta, tableRows: nextRows },
+          });
+        });
+        item.appendChild(cellInput);
+      });
+
+      const delRowBtn = doc.createElement('button');
+      delRowBtn.className = 'btn-tool';
+      delRowBtn.style.padding = '2px 5px';
+      delRowBtn.style.color = 'var(--brand-danger)';
+      delRowBtn.textContent = '×';
+      delRowBtn.title = 'Delete Row';
+      delRowBtn.addEventListener('click', () => {
+        const nextRows = rows.filter((_, i) => i !== rIdx);
+        this.state.updateSelected({
+          meta: { ...node.meta, tableRows: nextRows },
+        });
+      });
+
+      item.appendChild(delRowBtn);
+      this.tableRowsList!.appendChild(item);
+    });
   }
 
   private renderTree(nodes: SceneNode[], depth = 0): HTMLElement {
@@ -612,6 +874,29 @@ export class EditorApp {
       }
     }
 
+    this.artboard.classList.toggle('show-grid', Boolean(this.state.isGridVisible));
+    if (this.btnToggleGrid) {
+      this.btnToggleGrid.classList.toggle('active', Boolean(this.state.isGridVisible));
+    }
+
+    const doc = this.root instanceof Document ? this.root : document;
+    doc.body.classList.toggle('play-mode-active', Boolean(this.state.isPlayMode));
+    if (this.playModeHud) {
+      this.playModeHud.style.display = this.state.isPlayMode ? 'flex' : 'none';
+    }
+    if (this.playScreenTitle) {
+      const curScreen = this.state.screens.find((s) => s.id === this.state.activeScreenId);
+      this.playScreenTitle.textContent = curScreen ? curScreen.name : 'Screen';
+    }
+    if (this.btnPlayBack) {
+      this.btnPlayBack.style.opacity = this.state.playHistory.length > 1 ? '1' : '0.5';
+      this.btnPlayBack.style.pointerEvents = this.state.playHistory.length > 1 ? 'auto' : 'none';
+    }
+    if (this.btnPlayMode) {
+      this.btnPlayMode.classList.toggle('active', Boolean(this.state.isPlayMode));
+      this.btnPlayMode.textContent = this.state.isPlayMode ? '[x] Stop' : '[►] Play';
+    }
+
     // 2. Update Code Views
     const md = this.state.getMarkdown();
     if (this.specFormat === 'ascii') {
@@ -631,9 +916,12 @@ export class EditorApp {
       }
     }
 
-    const doc = this.root instanceof Document ? this.root : document;
     if (doc.activeElement !== this.jsonInput) {
       this.jsonInput.value = JSON.stringify(this.state.nodes, null, 2);
+    }
+
+    if (this.codeOutput) {
+      this.codeOutput.value = this.state.getCode();
     }
 
     // 3. Update Left Panel (Layers)
@@ -700,8 +988,23 @@ export class EditorApp {
       if (selected.type === 'container') {
         this.metaBorderStyleGroup.style.display = 'block';
         this.propBorderStyle.value = selected.meta?.borderStyle ?? 'single';
+        if (this.propFillShading) {
+          this.propFillShading.value = selected.meta?.fillShading ?? 'none';
+        }
+        if (this.metaStackGroup) {
+          this.metaStackGroup.style.display = 'block';
+          if (this.propStackLayout) {
+            this.propStackLayout.value = selected.meta?.layoutStack ?? 'none';
+          }
+          if (this.propStackGap) {
+            this.propStackGap.value = String(selected.meta?.stackGap ?? 1);
+          }
+        }
       } else {
         this.metaBorderStyleGroup.style.display = 'none';
+        if (this.metaStackGroup) {
+          this.metaStackGroup.style.display = 'none';
+        }
       }
 
       if (selected.type === 'line') {
@@ -744,6 +1047,15 @@ export class EditorApp {
         this.metaAlertGroup.style.display = 'none';
       }
 
+      if (selected.type === 'table') {
+        if (this.metaTableGroup) {
+          this.metaTableGroup.style.display = 'block';
+          this.renderTableInspector(selected);
+        }
+      } else if (this.metaTableGroup) {
+        this.metaTableGroup.style.display = 'none';
+      }
+
       this.propAction.value = selected.meta?.action ?? '';
       this.propBinding.value = selected.meta?.binding ?? '';
       this.propLayout.value = selected.meta?.layoutRule ?? '';
@@ -761,6 +1073,9 @@ export class EditorApp {
     this.tabDesign.classList.toggle('active', this.state.rightTab === 'design');
     this.tabSpec.classList.toggle('active', this.state.rightTab === 'spec');
     this.tabJson.classList.toggle('active', this.state.rightTab === 'json');
+    if (this.tabCode) {
+      this.tabCode.classList.toggle('active', this.state.rightTab === 'code');
+    }
 
     this.viewDesign.style.display =
       this.state.rightTab === 'design' ? 'block' : 'none';
@@ -768,6 +1083,13 @@ export class EditorApp {
       this.state.rightTab === 'spec' ? 'block' : 'none';
     this.viewJson.style.display =
       this.state.rightTab === 'json' ? 'block' : 'none';
+    if (this.viewCode) {
+      this.viewCode.style.display =
+        this.state.rightTab === 'code' ? 'block' : 'none';
+    }
+    if (this.codeTargetSelect) {
+      this.codeTargetSelect.value = this.state.codeTarget;
+    }
 
     // 7. Update Canvas Stage Dimensions for Zoom
     if (this.canvasStage && this.artboard) {
@@ -1013,6 +1335,29 @@ export class EditorApp {
     this.tabJson.addEventListener('click', () =>
       this.state.setRightTab('json')
     );
+    if (this.tabCode) {
+      this.tabCode.addEventListener('click', () =>
+        this.state.setRightTab('code')
+      );
+    }
+    if (this.codeTargetSelect) {
+      this.codeTargetSelect.addEventListener('change', () => {
+        this.state.setCodeTarget(this.codeTargetSelect!.value as any);
+      });
+    }
+    if (this.btnCopyCode) {
+      this.btnCopyCode.addEventListener('click', () => {
+        const code = this.state.getCode();
+        try {
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(code).catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
+        this.showToast('Copied code to clipboard');
+      });
+    }
 
     // Screen Viewport Selector
     this.screenSelect.addEventListener('change', () => {
@@ -1221,6 +1566,40 @@ export class EditorApp {
         return;
       }
 
+      // Interactive Play Mode Handling
+      if (this.state.isPlayMode) {
+        const { cellX, cellY } = this.clientToCell(e.clientX, e.clientY);
+        const hit = findNodeAt(this.state.nodes, cellX, cellY);
+        if (hit) {
+          if (hit.meta?.transitionTarget) {
+            const jumped = this.state.playNavigate(hit.meta.transitionTarget);
+            if (jumped) {
+              this.showToast(`Navigated to: ${hit.meta.transitionTarget}`);
+            }
+          } else if (
+            hit.type === 'checkbox' ||
+            hit.type === 'radio' ||
+            hit.type === 'toggle'
+          ) {
+            const nextChecked = !hit.meta?.checked;
+            this.state.updateNode(hit.id, {
+              meta: { ...hit.meta, checked: nextChecked },
+            });
+            this.showToast(`${hit.type}: ${nextChecked ? 'Checked' : 'Unchecked'}`);
+          } else if (hit.type === 'tabs') {
+            const tabs = hit.meta?.tabs ?? ['Tab 1', 'Tab 2', 'Tab 3'];
+            const curIdx = hit.meta?.activeTabIndex ?? 0;
+            const nextIdx = (curIdx + 1) % tabs.length;
+            this.state.updateNode(hit.id, {
+              meta: { ...hit.meta, activeTabIndex: nextIdx },
+            });
+            this.showToast(`Switched tab: ${tabs[nextIdx]}`);
+          }
+        }
+        e.preventDefault();
+        return;
+      }
+
       const target = e.target as HTMLElement;
 
       // 1. Check if clicking on a resize handle
@@ -1339,6 +1718,16 @@ export class EditorApp {
 
     // Prevent native drag & selection on canvas artboard
     this.artboard.addEventListener('dragstart', (e) => e.preventDefault());
+
+    // In-canvas direct double-click text editing
+    this.artboard.addEventListener('dblclick', (e: MouseEvent) => {
+      const { cellX, cellY } = this.clientToCell(e.clientX, e.clientY);
+      const hit = findNodeAt(this.state.nodes, cellX, cellY);
+      if (hit) {
+        this.state.selectNode(hit.id);
+        this.startInlineEdit(hit);
+      }
+    });
 
     // Dynamic Grab / Cursor hover in Select mode
     this.artboard.addEventListener('pointermove', (e: PointerEvent) => {
@@ -1477,6 +1866,53 @@ export class EditorApp {
         meta: { ...cur.meta, borderStyle: this.propBorderStyle.value as any },
       });
     });
+
+    if (this.propFillShading) {
+      this.propFillShading.addEventListener('change', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur) return;
+        this.state.updateSelected({
+          meta: { ...cur.meta, fillShading: this.propFillShading!.value as any },
+        });
+      });
+    }
+
+    if (this.propStackLayout) {
+      this.propStackLayout.addEventListener('change', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur) return;
+        const newLayout = this.propStackLayout!.value as any;
+        this.state.updateSelected({
+          meta: { ...cur.meta, layoutStack: newLayout },
+        });
+        if (newLayout === 'vertical' || newLayout === 'horizontal') {
+          this.state.reflowContainer(cur.id);
+        }
+      });
+    }
+
+    if (this.propStackGap) {
+      this.propStackGap.addEventListener('change', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur) return;
+        const gap = parseInt(this.propStackGap!.value, 10);
+        this.state.updateSelected({
+          meta: { ...cur.meta, stackGap: isNaN(gap) ? 1 : Math.max(0, gap) },
+        });
+        if (cur.meta?.layoutStack && cur.meta.layoutStack !== 'none') {
+          this.state.reflowContainer(cur.id);
+        }
+      });
+    }
+
+    if (this.btnReflowStack) {
+      this.btnReflowStack.addEventListener('click', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur || cur.type !== 'container') return;
+        this.state.reflowContainer(cur.id);
+        this.showToast('Reflowed stack layout');
+      });
+    }
 
     this.propLineEnding.addEventListener('change', () => {
       const cur = this.state.getSelectedNode();
@@ -1717,6 +2153,72 @@ export class EditorApp {
       });
     }
 
+    if (this.btnToggleGrid) {
+      this.btnToggleGrid.addEventListener('click', () => {
+        this.state.toggleGrid();
+        this.showToast(`Grid: ${this.state.isGridVisible ? 'On' : 'Off'}`);
+      });
+    }
+
+    if (this.btnAddTableCol) {
+      this.btnAddTableCol.addEventListener('click', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur || cur.type !== 'table') return;
+        const curCols = cur.meta?.tableColumns ?? [
+          { title: 'ID', width: 6, align: 'left' },
+          { title: 'Name', width: 14, align: 'left' },
+        ];
+        const curRows = cur.meta?.tableRows ?? [];
+        const nextCols = [...curCols, { title: `Col ${curCols.length + 1}`, width: 10, align: 'left' as const }];
+        const nextRows = curRows.map((r) => [...r, '-']);
+        this.state.updateSelected({
+          meta: { ...cur.meta, tableColumns: nextCols, tableRows: nextRows },
+        });
+      });
+    }
+
+    if (this.btnAddTableRow) {
+      this.btnAddTableRow.addEventListener('click', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur || cur.type !== 'table') return;
+        const curCols = cur.meta?.tableColumns ?? [
+          { title: 'ID', width: 6, align: 'left' },
+          { title: 'Name', width: 14, align: 'left' },
+        ];
+        const curRows = cur.meta?.tableRows ?? [];
+        const newRow = curCols.map((_, i) => (i === 0 ? `#${curRows.length + 1}` : 'Value'));
+        const nextRows = [...curRows, newRow];
+        this.state.updateSelected({
+          meta: { ...cur.meta, tableRows: nextRows },
+        });
+      });
+    }
+
+    if (this.btnPlayMode) {
+      this.btnPlayMode.addEventListener('click', () => {
+        if (this.state.isPlayMode) {
+          this.state.exitPlayMode();
+          this.showToast('Exited Play Mode');
+        } else {
+          this.state.enterPlayMode();
+          this.showToast('Entered Play Mode');
+        }
+      });
+    }
+
+    if (this.btnPlayBack) {
+      this.btnPlayBack.addEventListener('click', () => {
+        this.state.playBack();
+      });
+    }
+
+    if (this.btnPlayExit) {
+      this.btnPlayExit.addEventListener('click', () => {
+        this.state.exitPlayMode();
+        this.showToast('Exited Play Mode');
+      });
+    }
+
     // Ctrl/Cmd + Mouse Wheel / Trackpad Pinch Zoom
     const wheelTarget = this.canvasViewport || this.canvasArea;
     if (wheelTarget) {
@@ -1759,6 +2261,111 @@ export class EditorApp {
       } catch (err) {
         this.showToast(`Invalid JSON: ${(err as Error).message}`);
       }
+    });
+
+    // AI Prompt Modal
+    if (this.btnPromptAi) {
+      this.btnPromptAi.addEventListener('click', () => {
+        if (this.modalPrompt) {
+          if (typeof this.modalPrompt.showModal === 'function') {
+            this.modalPrompt.showModal();
+          } else {
+            this.modalPrompt.setAttribute('open', '');
+          }
+          this.promptInput?.focus();
+        }
+      });
+    }
+
+    if (this.btnClosePrompt) {
+      this.btnClosePrompt.addEventListener('click', () => {
+        if (this.modalPrompt) {
+          if (typeof this.modalPrompt.close === 'function') {
+            this.modalPrompt.close();
+          } else {
+            this.modalPrompt.removeAttribute('open');
+          }
+        }
+      });
+    }
+
+    if (this.btnSubmitPrompt) {
+      this.btnSubmitPrompt.addEventListener('click', () => {
+        const prompt = this.promptInput?.value?.trim();
+        if (!prompt) {
+          this.showToast('Please enter a description');
+          return;
+        }
+        const generated = generateWireframeFromPrompt(prompt, this.state.currentScreen ?? undefined);
+        this.state.setNodes(generated);
+        if (this.modalPrompt) {
+          if (typeof this.modalPrompt.close === 'function') {
+            this.modalPrompt.close();
+          } else {
+            this.modalPrompt.removeAttribute('open');
+          }
+        }
+        this.showToast('Generated wireframe from prompt');
+      });
+    }
+
+    // ASCII Import Modal
+    if (this.btnImportAscii) {
+      this.btnImportAscii.addEventListener('click', () => {
+        if (this.modalImport) {
+          if (typeof this.modalImport.showModal === 'function') {
+            this.modalImport.showModal();
+          } else {
+            this.modalImport.setAttribute('open', '');
+          }
+          this.importAsciiInput?.focus();
+        }
+      });
+    }
+
+    if (this.btnCloseImport) {
+      this.btnCloseImport.addEventListener('click', () => {
+        if (this.modalImport) {
+          if (typeof this.modalImport.close === 'function') {
+            this.modalImport.close();
+          } else {
+            this.modalImport.removeAttribute('open');
+          }
+        }
+      });
+    }
+
+    if (this.btnSubmitImport) {
+      this.btnSubmitImport.addEventListener('click', () => {
+        const ascii = this.importAsciiInput?.value;
+        if (!ascii || !ascii.trim()) {
+          this.showToast('Please paste ASCII wireframe text');
+          return;
+        }
+        const parsedNodes = parseAsciiToNodes(ascii);
+        if (parsedNodes.length === 0) {
+          this.showToast('No recognizable widgets found in ASCII');
+          return;
+        }
+        this.state.setNodes(parsedNodes);
+        if (this.modalImport) {
+          if (typeof this.modalImport.close === 'function') {
+            this.modalImport.close();
+          } else {
+            this.modalImport.removeAttribute('open');
+          }
+        }
+        this.showToast(`Imported ${parsedNodes.length} widgets from ASCII`);
+      });
+    }
+
+    [this.modalPrompt, this.modalImport].forEach((dialog) => {
+      dialog?.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          if (typeof dialog.close === 'function') dialog.close();
+          else dialog.removeAttribute('open');
+        }
+      });
     });
   }
 
@@ -2027,6 +2634,27 @@ export class EditorApp {
       return;
     }
 
+    // Escape to exit play mode
+    if (e.key === 'Escape' && this.state.isPlayMode) {
+      this.state.exitPlayMode();
+      this.showToast('Exited Play Mode');
+      e.preventDefault();
+      return;
+    }
+
+    // Play mode toggle (Cmd/Ctrl + P)
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'p' || e.key === 'P')) {
+      if (this.state.isPlayMode) {
+        this.state.exitPlayMode();
+        this.showToast('Exited Play Mode');
+      } else {
+        this.state.enterPlayMode();
+        this.showToast('Entered Play Mode');
+      }
+      e.preventDefault();
+      return;
+    }
+
     // Space bar hold for temporary canvas panning
     if (e.code === 'Space' || e.key === ' ') {
       if (!this.isSpacePressed) {
@@ -2115,6 +2743,12 @@ export class EditorApp {
       if (e.key === '0') {
         this.setZoom(1.0);
         this.showToast('Zoom: 100%');
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "'" || e.key === '"') {
+        this.state.toggleGrid();
+        this.showToast(`Grid: ${this.state.isGridVisible ? 'On' : 'Off'}`);
         e.preventDefault();
         return;
       }

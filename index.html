@@ -108,11 +108,14 @@
       <!-- Right Actions & Presets -->
       <div class="toolbar-right">
         <span id="render-timer" class="tool-badge" style="color: var(--brand-primary); font-weight: 600;" title="Rasterization frame budget">0.1ms (&lt; 2ms)</span>
+        <button id="btn-play-mode" class="btn-zen-primary" style="padding: 4px 10px; font-size: 0.76rem;" title="Play Interactive Prototype (Cmd/Ctrl + P)">[►] Play</button>
 
         <button id="btn-undo" class="btn-tool" title="Undo (Cmd+Z)">&lt;-</button>
         <button id="btn-redo" class="btn-tool" title="Redo (Cmd+Shift+Z)">-&gt;</button>
         <button id="btn-duplicate" class="btn-tool" title="Duplicate (Cmd+D)">[+] Dup</button>
         <button id="btn-clear" class="btn-tool" title="Clear Canvas">[x] Clear</button>
+        <button id="btn-prompt-ai" class="btn-tool" title="Generate Wireframe from Prompt">[✦] Prompt</button>
+        <button id="btn-import-ascii" class="btn-tool" title="Import Raw ASCII Wireframe">[:] Import</button>
 
         <!-- Template starter helper -->
         <select id="preset-select" class="field-select" style="padding: 3px 6px; font-size: 0.75rem;">
@@ -293,6 +296,12 @@
                 </div>
                 <div class="component-card-preview">Title / Label</div>
               </div>
+              <div class="component-card" draggable="true" data-create-component="icon">
+                <div class="component-card-header">
+                  <span>Icon Symbol</span>
+                </div>
+                <div class="component-card-preview">[☼] {icon}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -300,6 +309,14 @@
 
       <!-- Center Drawing Canvas -->
       <section class="studio-canvas-area" id="canvas-area">
+        <!-- Interactive Play Mode HUD -->
+        <div id="play-mode-hud" class="play-mode-hud" style="display: none;">
+          <button id="btn-play-back" class="btn-play-hud" title="Previous Screen">&lt;- Back</button>
+          <span id="play-screen-title" class="play-screen-title">Screen 1</span>
+          <span class="play-hint">Interactive Mode (Click transitions / toggle controls • Esc to exit)</span>
+          <button id="btn-play-exit" class="btn-play-hud" title="Exit Play Mode (Esc)">[x] Exit</button>
+        </div>
+
         <!-- Screen Flow Bar (Multi-Artboard Navigation) -->
         <div id="screen-flow-bar" class="screen-flow-bar">
           <div class="screen-flow-left">
@@ -358,6 +375,7 @@
           <button id="btn-zoom-level" class="zoom-level-btn" title="Reset Zoom / Cycle (Cmd/Ctrl + 0)">100%</button>
           <button id="btn-zoom-in" class="zoom-btn" title="Zoom In (Cmd/Ctrl + +)">[+]</button>
           <button id="btn-zoom-fit" class="zoom-btn" title="Fit to Screen (Shift + 1)">[=]</button>
+          <button id="btn-toggle-grid" class="zoom-btn" title="Toggle Dot Grid (Cmd/Ctrl + ')">[#]</button>
         </div>
       </section>
 
@@ -366,6 +384,7 @@
         <div class="sidebar-tabs">
           <button id="tab-design" class="sidebar-tab-btn active" data-tab="preview">Design</button>
           <button id="tab-spec" class="sidebar-tab-btn" data-tab="markdown">Spec (MD)</button>
+          <button id="tab-code" class="sidebar-tab-btn" data-tab="code">Code</button>
           <button id="tab-json" class="sidebar-tab-btn" data-tab="json">AST JSON</button>
           <button id="btn-toggle-wide" class="sidebar-tab-btn btn-wide-toggle" title="Toggle Wide View (Expand Panel)" style="flex: 0 0 40px;">&lt;&gt;</button>
         </div>
@@ -465,6 +484,27 @@
                   <option value="dashed">Dashed (+-+ Dropzone)</option>
                   <option value="minimal">Minimal (── Header only)</option>
                 </select>
+                <label for="prop-fill-shading" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 4px; margin-bottom: 2px;">Interior Shading:</label>
+                <select id="prop-fill-shading" class="field-select" style="width: 100%;">
+                  <option value="none">None (Transparent)</option>
+                  <option value="light">Light (░ Halftone)</option>
+                  <option value="medium">Medium (▒ Pattern)</option>
+                  <option value="dense">Dense (▓ Heavy)</option>
+                </select>
+
+                <div id="meta-stack-group" style="margin-top: 6px;">
+                  <label for="prop-stack-layout" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Stack Auto-Layout:</label>
+                  <select id="prop-stack-layout" class="field-select" style="width: 100%; margin-bottom: 4px;">
+                    <option value="none">None (Absolute Cells)</option>
+                    <option value="vertical">Vertical Stack</option>
+                    <option value="horizontal">Horizontal Stack</option>
+                  </select>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <label for="prop-stack-gap" style="font-size: 0.72rem; color: var(--text-muted); flex: 1;">Gap (cells):</label>
+                    <input id="prop-stack-gap" type="number" min="0" max="10" value="1" class="field-input" style="width: 44px;" />
+                    <button id="btn-reflow-stack" class="btn-tool" style="font-size: 0.7rem; padding: 2px 6px;">Reflow</button>
+                  </div>
+                </div>
               </div>
 
               <div id="meta-line-group" style="display: none; margin-top: 6px;">
@@ -523,6 +563,20 @@
                   <option value="warning">Warning: [!]</option>
                   <option value="danger">Danger: [x]</option>
                 </select>
+              </div>
+
+              <div id="meta-table-group" style="display: none; margin-top: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span class="inspector-title" style="font-size: 0.72rem; color: var(--text-muted); margin: 0;">Table Columns:</span>
+                  <button id="btn-add-table-col" class="btn-tool" style="font-size: 0.7rem; padding: 2px 6px;" title="Add Column">[+] Col</button>
+                </div>
+                <div id="table-cols-list" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span class="inspector-title" style="font-size: 0.72rem; color: var(--text-muted); margin: 0;">Table Rows:</span>
+                  <button id="btn-add-table-row" class="btn-tool" style="font-size: 0.7rem; padding: 2px 6px;" title="Add Row">[+] Row</button>
+                </div>
+                <div id="table-rows-list" style="display: flex; flex-direction: column; gap: 4px;"></div>
               </div>
             </div>
 
@@ -589,6 +643,22 @@
           <textarea id="markdown-output" class="zen-code-output" readonly spellcheck="false" placeholder="Generating wireframe specification..."></textarea>
         </div>
 
+        <!-- Multi-Target Code View -->
+        <div id="view-code" class="panel-scrollable" style="display: none;">
+          <div class="copy-section-header">
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <select id="code-target-select" class="field-select" style="flex: 1; font-weight: 600; font-size: 0.76rem;">
+                <option value="react-tailwind">React + Tailwind CSS (TSX)</option>
+                <option value="html-css">HTML5 + CSS</option>
+                <option value="textual">Python Textual (TUI)</option>
+                <option value="bubbletea">Go Bubbletea (TUI)</option>
+              </select>
+              <button id="btn-copy-code" class="btn-zen-primary" style="padding: 4px 10px; font-size: 0.74rem;" title="Copy generated source code">[#] Copy Code</button>
+            </div>
+          </div>
+          <textarea id="code-output" class="zen-code-output" readonly spellcheck="false" placeholder="Generating target source code..."></textarea>
+        </div>
+
         <!-- AST JSON View -->
         <div id="view-json" class="panel-scrollable" style="display: none;">
           <textarea id="json-input" class="field-input" style="height: calc(100vh - 180px); font-family: var(--font-mono); font-size: 0.72rem; resize: none;" spellcheck="false"></textarea>
@@ -596,6 +666,35 @@
         </div>
       </aside>
     </main>
+
+    <!-- Modal Dialogs: AI Prompt & Raw ASCII Import -->
+    <dialog id="modal-prompt" class="studio-dialog">
+      <div class="dialog-card">
+        <div class="dialog-header">
+          <span class="dialog-title">✦ AI Wireframe Generator</span>
+          <button type="button" id="btn-close-prompt" class="dialog-close-btn">&times;</button>
+        </div>
+        <p class="dialog-desc">Enter a natural language prompt describing the screen to synthesize (e.g. "Login form with email and remember me", "Preferences page with dark theme", "CRM customer table"):</p>
+        <textarea id="prompt-input" class="dialog-textarea" placeholder="Describe the interface you want to create..."></textarea>
+        <div class="dialog-actions">
+          <button type="button" id="btn-submit-prompt" class="btn-zen-primary">Generate Layout</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="modal-import" class="studio-dialog">
+      <div class="dialog-card">
+        <div class="dialog-header">
+          <span class="dialog-title">[:] Import ASCII Wireframe</span>
+          <button type="button" id="btn-close-import" class="dialog-close-btn">&times;</button>
+        </div>
+        <p class="dialog-desc">Paste raw ASCII/UTF-8 box-drawing text to compile into editable scene nodes:</p>
+        <textarea id="import-ascii-input" class="dialog-textarea font-mono" placeholder="Paste ASCII text here..."></textarea>
+        <div class="dialog-actions">
+          <button type="button" id="btn-submit-import" class="btn-zen-primary">Compile to Nodes</button>
+        </div>
+      </div>
+    </dialog>
 
     <!-- App Script -->
     <script type="module" src="./src/editor/main.ts"></script>

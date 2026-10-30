@@ -22,6 +22,7 @@ import {
   findNodesInRect,
   AlignmentType,
   DistributionAxis,
+  applyStackLayout,
 } from '../core/ast/mutations.js';
 import { rasterizeScene } from '../core/rasterizer/widget-stampers.js';
 import {
@@ -32,10 +33,17 @@ import {
   serializeToSvg,
   SvgExportOptions,
 } from '../core/serializer/wireframe-svg.js';
+import {
+  serializeToReactTailwind,
+  serializeToHtmlCss,
+  serializeToTerminalTUI,
+} from '../core/serializer/wireframe-codegen.js';
 import { CharGrid } from '../core/rasterizer/char-grid.js';
 import { PRESETS } from './presets.js';
 
-export type TabType = 'preview' | 'markdown' | 'json';
+export type TabType = 'preview' | 'markdown' | 'code' | 'json';
+export type RightPanelTab = 'design' | 'spec' | 'code' | 'json';
+export type CodeTarget = 'react-tailwind' | 'html-css' | 'textual' | 'bubbletea';
 export type EditorTool =
   | 'select'
   | 'hand'
@@ -58,7 +66,6 @@ export type EditorTool =
   | 'alert';
 
 export type LeftPanelTab = 'layers' | 'components';
-export type RightPanelTab = 'design' | 'spec' | 'json';
 
 export class EditorState {
   public nodes: SceneNode[];
@@ -69,6 +76,10 @@ export class EditorState {
   public rightTab: RightPanelTab = 'design';
   public activeTab: TabType = 'preview';
   public lastRenderMs = 0;
+  public isGridVisible = false;
+  public isPlayMode = false;
+  public playHistory: string[] = [];
+  public codeTarget: CodeTarget = 'react-tailwind';
 
   // Screen / Viewport State
   public currentScreen: ScreenConfig | null = null;
@@ -229,6 +240,7 @@ export class EditorState {
   public setRightTab(tab: RightPanelTab): void {
     this.rightTab = tab;
     if (tab === 'spec') this.activeTab = 'markdown';
+    else if (tab === 'code') this.activeTab = 'code';
     else if (tab === 'json') this.activeTab = 'json';
     else this.activeTab = 'preview';
     this.notify();
@@ -237,9 +249,78 @@ export class EditorState {
   public setTab(tab: TabType): void {
     this.activeTab = tab;
     if (tab === 'markdown') this.rightTab = 'spec';
+    else if (tab === 'code') this.rightTab = 'code';
     else if (tab === 'json') this.rightTab = 'json';
     else this.rightTab = 'design';
     this.notify();
+  }
+
+  public setCodeTarget(target: CodeTarget): void {
+    this.codeTarget = target;
+    this.notify();
+  }
+
+  public getCode(): string {
+    const screen = this.getEffectiveScreen() || undefined;
+    if (this.codeTarget === 'react-tailwind') {
+      return serializeToReactTailwind(this.nodes, screen);
+    }
+    if (this.codeTarget === 'html-css') {
+      return serializeToHtmlCss(this.nodes, screen);
+    }
+    if (this.codeTarget === 'textual') {
+      return serializeToTerminalTUI(this.nodes, 'textual');
+    }
+    if (this.codeTarget === 'bubbletea') {
+      return serializeToTerminalTUI(this.nodes, 'bubbletea');
+    }
+    return '';
+  }
+
+  public reflowContainer(containerId: string): void {
+    this.setNodes(applyStackLayout(this.nodes, containerId));
+  }
+
+  public toggleGrid(visible?: boolean): void {
+    this.isGridVisible = visible !== undefined ? visible : !this.isGridVisible;
+    this.notify();
+  }
+
+  public enterPlayMode(): void {
+    this.isPlayMode = true;
+    this.playHistory = [this.activeScreenId];
+    this.selectedId = null;
+    this.selectedIds.clear();
+    this.notify();
+  }
+
+  public exitPlayMode(): void {
+    this.isPlayMode = false;
+    this.playHistory = [];
+    this.notify();
+  }
+
+  public playNavigate(targetScreenIdOrName: string): boolean {
+    const found = this.screens.find(
+      (s) => s.id === targetScreenIdOrName || s.name === targetScreenIdOrName
+    );
+    if (found) {
+      this.playHistory.push(found.id);
+      this.switchScreen(found.id);
+      return true;
+    }
+    return false;
+  }
+
+  public playBack(): boolean {
+    if (this.playHistory.length <= 1) return false;
+    this.playHistory.pop(); // remove current
+    const prevId = this.playHistory[this.playHistory.length - 1];
+    if (prevId) {
+      this.switchScreen(prevId);
+      return true;
+    }
+    return false;
   }
 
   // Screen Management
@@ -427,6 +508,10 @@ export class EditorState {
   public updateSelected(updates: Partial<SceneNode>, pushHistory = true): void {
     if (!this.selectedId) return;
     this.setNodes(updateNode(this.nodes, this.selectedId, updates), pushHistory);
+  }
+
+  public updateNode(id: string, updates: Partial<SceneNode>, pushHistory = true): void {
+    this.setNodes(updateNode(this.nodes, id, updates), pushHistory);
   }
 
   public moveSelected(dx: number, dy: number, pushHistory = true): void {

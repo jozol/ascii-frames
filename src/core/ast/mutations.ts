@@ -544,3 +544,117 @@ export function findNodesInRect(
 
   return matched;
 }
+
+export function reflowStackContainer(container: SceneNode): SceneNode {
+  if (
+    container.type !== 'container' ||
+    !container.children ||
+    container.children.length === 0
+  ) {
+    return container;
+  }
+
+  const stack = container.meta?.layoutStack ?? 'none';
+  if (stack === 'none') return container;
+
+  const gap = Math.max(0, container.meta?.stackGap ?? 1);
+  const padding = Math.max(1, container.meta?.stackPadding ?? 1);
+
+  const updatedChildren: SceneNode[] = [];
+
+  if (stack === 'vertical') {
+    let currentY = container.rect.y + padding;
+    let maxChildW = 0;
+
+    for (const child of container.children) {
+      const childW = child.rect.w;
+      const childH = child.rect.h;
+      maxChildW = Math.max(maxChildW, childW);
+
+      updatedChildren.push({
+        ...child,
+        rect: {
+          x: container.rect.x + padding,
+          y: currentY,
+          w: childW,
+          h: childH,
+        },
+      });
+
+      currentY += childH + gap;
+    }
+
+    const neededH = currentY - (container.children.length > 0 ? gap : 0) + padding - container.rect.y;
+    const neededW = maxChildW + padding * 2;
+
+    const newRect = {
+      ...container.rect,
+      w: container.meta?.autoResizeContainer ? Math.max(container.rect.w, neededW) : container.rect.w,
+      h: container.meta?.autoResizeContainer ? Math.max(container.rect.h, neededH) : container.rect.h,
+    };
+
+    return {
+      ...container,
+      rect: newRect,
+      children: updatedChildren,
+    };
+  }
+
+  if (stack === 'horizontal') {
+    let currentX = container.rect.x + padding;
+    let maxChildH = 0;
+
+    for (const child of container.children) {
+      const childW = child.rect.w;
+      const childH = child.rect.h;
+      maxChildH = Math.max(maxChildH, childH);
+
+      updatedChildren.push({
+        ...child,
+        rect: {
+          x: currentX,
+          y: container.rect.y + padding,
+          w: childW,
+          h: childH,
+        },
+      });
+
+      currentX += childW + gap;
+    }
+
+    const neededW = currentX - (container.children.length > 0 ? gap : 0) + padding - container.rect.x;
+    const neededH = maxChildH + padding * 2;
+
+    const newRect = {
+      ...container.rect,
+      w: container.meta?.autoResizeContainer ? Math.max(container.rect.w, neededW) : container.rect.w,
+      h: container.meta?.autoResizeContainer ? Math.max(container.rect.h, neededH) : container.rect.h,
+    };
+
+    return {
+      ...container,
+      rect: newRect,
+      children: updatedChildren,
+    };
+  }
+
+  return container;
+}
+
+export function applyStackLayout(
+  nodes: SceneNode[],
+  containerId: string
+): SceneNode[] {
+  return nodes.map((node) => {
+    if (node.id === containerId) {
+      return reflowStackContainer(node);
+    }
+    if (node.children) {
+      return {
+        ...node,
+        children: applyStackLayout(node.children, containerId),
+      };
+    }
+    return node;
+  });
+}

@@ -148,6 +148,18 @@ export class CharGrid {
     }
   }
 
+  fillArea(rect: Rect, char: string): void {
+    const x0 = Math.max(0, rect.x);
+    const y0 = Math.max(0, rect.y);
+    const x1 = Math.min(this.width, rect.x + rect.w);
+    const y1 = Math.min(this.height, rect.y + rect.h);
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        this.cells[y][x] = char;
+      }
+    }
+  }
+
   renderToString(): string {
     return this.cells.map((row) => row.join('').trimEnd()).join('\n');
   }

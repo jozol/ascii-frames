@@ -15,7 +15,11 @@ export type WidgetType =
   | 'table'
   | 'badge'
   | 'progress'
-  | 'alert';
+  | 'alert'
+  | 'icon';
+
+export type ShadingDensity = 'none' | 'light' | 'medium' | 'dense';
+export type StackDirection = 'none' | 'horizontal' | 'vertical';
 
 export type ContainerBorderStyle =
   | 'single'
@@ -78,6 +82,16 @@ export interface NodeMeta {
   tableRows?: string[][];
   // Alert
   alertVariant?: AlertVariant;
+  // Shading & Depth
+  fillShading?: ShadingDensity;
+  backdropShading?: ShadingDensity;
+  // Icon
+  iconName?: string;
+  // Stack / Auto-layout
+  layoutStack?: StackDirection;
+  stackGap?: number;
+  stackPadding?: number;
+  autoResizeContainer?: boolean;
 }
 
 export interface ArtboardScreen {

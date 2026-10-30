@@ -20,13 +20,72 @@ import {
 } from './stampers-nav-data.js';
 export { stampTabs, stampBreadcrumbs, stampTable };
 
+export function expandIconMacros(text: string): string {
+  if (!text || !text.includes('{')) return text;
+  return text
+    .replace(/\{search\}/gi, '[⌕]')
+    .replace(/\{bell\}/gi, '[▲]')
+    .replace(/\{(gear|settings)\}/gi, '[☼]')
+    .replace(/\{(user|profile)\}/gi, '(@)')
+    .replace(/\{check\}/gi, '[✓]')
+    .replace(/\{(close|x)\}/gi, '[×]')
+    .replace(/\{star\}/gi, '[★]')
+    .replace(/\{heart\}/gi, '[♥]')
+    .replace(/\{menu\}/gi, '[≡]')
+    .replace(/\{arrow-right\}/gi, '─►')
+    .replace(/\{arrow-left\}/gi, '◄─')
+    .replace(/\{arrow-up\}/gi, '▲')
+    .replace(/\{arrow-down\}/gi, '▼')
+    .replace(/\{lock\}/gi, '[#]')
+    .replace(/\{unlock\}/gi, '[ ]')
+    .replace(/\{folder\}/gi, '[+]')
+    .replace(/\{file\}/gi, '[-]')
+    .replace(/\{icon:([a-z0-9_-]+)\}/gi, '[$1]');
+}
+
+function getShadingChar(density?: 'none' | 'light' | 'medium' | 'dense'): string | null {
+  if (!density || density === 'none') return null;
+  if (density === 'light') return '░';
+  if (density === 'medium') return '▒';
+  if (density === 'dense') return '▓';
+  return null;
+}
+
 export function stampContainer(grid: CharGrid, node: SceneNode): void {
-  grid.drawBox(node.rect, node.label, node.meta?.borderStyle ?? 'single');
+  // 1. Optional backdrop shading
+  const backdropChar = getShadingChar(node.meta?.backdropShading);
+  if (backdropChar) {
+    grid.fillArea(node.rect, backdropChar);
+  }
+
+  // 2. Draw outer box with title
+  const title = node.label ? expandIconMacros(node.label) : undefined;
+  grid.drawBox(node.rect, title, node.meta?.borderStyle ?? 'single');
+
+  // 3. Optional interior fill shading
+  const fillChar = getShadingChar(node.meta?.fillShading);
+  if (fillChar && node.rect.w > 2 && node.rect.h > 2) {
+    grid.fillArea(
+      {
+        x: node.rect.x + 1,
+        y: node.rect.y + 1,
+        w: node.rect.w - 2,
+        h: node.rect.h - 2,
+      },
+      fillChar
+    );
+  }
+}
+
+export function stampIcon(grid: CharGrid, node: SceneNode): void {
+  const iconRaw = node.label || node.meta?.iconName || '{gear}';
+  const iconStr = iconRaw.startsWith('{') ? expandIconMacros(iconRaw) : expandIconMacros(`{${iconRaw}}`);
+  grid.writeText(node.rect.x, node.rect.y, iconStr, node.rect.w > 0 ? node.rect.w : undefined);
 }
 
 export function stampButton(grid: CharGrid, node: SceneNode): void {
   const isPrimary = node.meta?.variant === 'primary';
-  const label = node.label ?? '';
+  const label = expandIconMacros(node.label ?? '');
   let str: string;
 
   if (isPrimary) {
@@ -60,7 +119,7 @@ export function stampButton(grid: CharGrid, node: SceneNode): void {
 }
 
 export function stampInput(grid: CharGrid, node: SceneNode): void {
-  const text = node.label ?? '';
+  const text = expandIconMacros(node.label ?? '');
   let str: string;
 
   if (node.rect.w > 0) {
@@ -156,7 +215,7 @@ export function stampToggle(grid: CharGrid, node: SceneNode): void {
 }
 
 export function stampText(grid: CharGrid, node: SceneNode): void {
-  const str = node.label ?? '';
+  const str = expandIconMacros(node.label ?? '');
   grid.writeText(
     node.rect.x,
     node.rect.y,
@@ -410,6 +469,9 @@ export function stampNode(grid: CharGrid, node: SceneNode): void {
       break;
     case 'alert':
       stampAlert(grid, node);
+      break;
+    case 'icon':
+      stampIcon(grid, node);
       break;
   }
 }

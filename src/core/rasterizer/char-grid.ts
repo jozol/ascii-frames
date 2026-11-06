@@ -160,6 +160,24 @@ export class CharGrid {
     }
   }
 
+  stampSprite(x: number, y: number, rows: readonly string[], clip?: Rect): void {
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      const cy = y + r;
+      if (cy < 0 || cy >= this.height) continue;
+      if (clip && (cy < clip.y || cy >= clip.y + clip.h)) continue;
+
+      for (let c = 0; c < row.length; c++) {
+        const ch = row[c];
+        if (ch === ' ') continue;
+        const cx = x + c;
+        if (cx < 0 || cx >= this.width) continue;
+        if (clip && (cx < clip.x || cx >= clip.x + clip.w)) continue;
+        this.cells[cy][cx] = ch;
+      }
+    }
+  }
+
   renderToString(): string {
     return this.cells.map((row) => row.join('').trimEnd()).join('\n');
   }

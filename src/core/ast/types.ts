@@ -87,6 +87,7 @@ export interface NodeMeta {
   backdropShading?: ShadingDensity;
   // Icon
   iconName?: string;
+  iconSize?: 'auto' | 'art5' | 'art3' | 'glyph';
   // Stack / Auto-layout
   layoutStack?: StackDirection;
   stackGap?: number;

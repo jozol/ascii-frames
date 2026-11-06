@@ -53,6 +53,98 @@ describe('Icons & Surface Shading Suite', () => {
       stampIcon(grid, node);
       expect(grid.renderToString()).toBe('  [☼]');
     });
+
+    it('stamps multi-line art3 icon sprite when h >= 3', () => {
+      const grid = new CharGrid(12, 3);
+      const node: SceneNode = {
+        id: 'icon-user',
+        type: 'icon',
+        rect: { x: 0, y: 0, w: 9, h: 3 },
+        zIndex: 1,
+        meta: { iconName: 'user' },
+      };
+      stampIcon(grid, node);
+      const lines = grid.renderToString().split('\n');
+      expect(lines[0]).toBe('   ╭─╮');
+      expect(lines[1]).toBe('   ╰┬╯');
+      expect(lines[2]).toBe('  ╭─┴─╮');
+    });
+
+    it('stamps multi-line art5 icon sprite when h >= 5 and w >= 11', () => {
+      const grid = new CharGrid(15, 5);
+      const node: SceneNode = {
+        id: 'icon-chart',
+        type: 'icon',
+        rect: { x: 2, y: 0, w: 12, h: 5 },
+        zIndex: 1,
+        meta: { iconName: 'chart' },
+      };
+      stampIcon(grid, node);
+      const lines = grid.renderToString().split('\n');
+      expect(lines[0]).toBe('  │        █');
+      expect(lines[1]).toBe('  │     ▆  █');
+      expect(lines[2]).toBe('  │  ▃  █  █');
+      expect(lines[3]).toBe('  │  █  █  █');
+      expect(lines[4]).toBe('  └─────────╴');
+    });
+
+    it('stamps sprite transparently without erasing container borders', () => {
+      const grid = new CharGrid(13, 5);
+      const container: SceneNode = {
+        id: 'box',
+        type: 'container',
+        rect: { x: 0, y: 0, w: 13, h: 5 },
+        zIndex: 0,
+        label: 'Card',
+      };
+      const icon: SceneNode = {
+        id: 'icon-search',
+        type: 'icon',
+        rect: { x: 2, y: 1, w: 9, h: 3 },
+        zIndex: 1,
+        meta: { iconName: 'search' },
+      };
+      stampContainer(grid, container);
+      stampIcon(grid, icon);
+      const lines = grid.renderToString().split('\n');
+      expect(lines[0]).toBe('┌─ Card ────┐');
+      expect(lines[1]).toContain('│');
+      expect(lines[4]).toBe('└───────────┘');
+    });
+  });
+
+  describe('Multi-line Action-Matched Buttons', () => {
+    it('stamps 3-row button card with inferred icon from action', () => {
+      const grid = new CharGrid(20, 6);
+      const node: SceneNode = {
+        id: 'btn-deploy',
+        type: 'button',
+        rect: { x: 0, y: 0, w: 16, h: 6 },
+        zIndex: 1,
+        label: 'Deploy Build',
+        meta: { variant: 'primary', action: 'triggerDeploy' },
+      };
+      stampButton(grid, node);
+      const rendered = grid.renderToString();
+      expect(rendered).toContain('╔══════════════╗');
+      expect(rendered).toContain('╭──╮'); // cloud art
+      expect(rendered).toContain('Deploy Build');
+      expect(rendered).toContain('╚══════════════╝');
+    });
+
+    it('stamps 1-row button with explicit icon glyph prefix', () => {
+      const grid = new CharGrid(24, 1);
+      const node: SceneNode = {
+        id: 'btn-settings',
+        type: 'button',
+        rect: { x: 0, y: 0, w: 20, h: 1 },
+        zIndex: 1,
+        label: 'Settings',
+        meta: { variant: 'secondary', iconName: 'gear' },
+      };
+      stampButton(grid, node);
+      expect(grid.renderToString()).toContain('[☼] Settings');
+    });
   });
 
   describe('Container Shading & Depth', () => {

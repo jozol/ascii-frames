@@ -1463,4 +1463,117 @@ describe('Editor UI Realistic User Interaction Suite', () => {
     expect(button).toBeDefined();
     expect(button?.meta?.variant).toBe('primary');
   });
+
+  it('Case 35: Adds ASCII Art Icon from component gallery and verifies sprite rendering', () => {
+    // Switch to Components tab
+    app.tabComponents.click();
+    expect(app.state.leftTab).toBe('components');
+
+    // Click User icon card
+    const userCard = document.querySelector<HTMLElement>('[data-create-component="icon:user"]');
+    expect(userCard).not.toBeNull();
+    userCard!.click();
+
+    const selected = app.state.getSelectedNode();
+    expect(selected).toBeDefined();
+    expect(selected?.type).toBe('icon');
+    expect(selected?.meta?.iconName).toBe('user');
+    expect(selected?.rect.w).toBeGreaterThanOrEqual(9);
+    expect(selected?.rect.h).toBeGreaterThanOrEqual(3);
+
+    // Canvas must render the user sprite
+    expect(app.asciiOutput.textContent).toContain('╭─╮');
+    expect(app.asciiOutput.textContent).toContain('╰┬╯');
+    expect(app.asciiOutput.textContent).toContain('╭─┴─╮');
+  });
+
+  it('Case 36: Verifies toolbar dropdown tool creates a select widget', () => {
+    const dropdownToolBtn = document.querySelector<HTMLButtonElement>('#tool-select-widget');
+    expect(dropdownToolBtn).not.toBeNull();
+    expect(dropdownToolBtn?.dataset.tool).toBe('dropdown');
+
+    dropdownToolBtn!.click();
+    expect(app.state.activeTool).toBe('dropdown');
+
+    vi.spyOn(app, 'getCellMetrics').mockReturnValue({
+      charW: 10,
+      charH: 15,
+      padLeft: 24,
+      padTop: 24,
+    });
+    vi.spyOn(app, 'clientToCell')
+      .mockReturnValueOnce({ cellX: 10, cellY: 10 })
+      .mockReturnValueOnce({ cellX: 25, cellY: 10 });
+
+    app.artboard.dispatchEvent(
+      new PointerEvent('pointerdown', { clientX: 124, clientY: 174, bubbles: true })
+    );
+    window.dispatchEvent(
+      new PointerEvent('pointerup', { clientX: 274, clientY: 174, bubbles: true })
+    );
+
+    const selected = app.state.getSelectedNode();
+    expect(selected).toBeDefined();
+    expect(selected?.type).toBe('select');
+  });
+
+  it('Case 37: Toggles collapsible sidebar panels via buttons, rails, and shortcuts', () => {
+    expect(app.state.isLeftCollapsed).toBe(false);
+    expect(app.state.isRightCollapsed).toBe(false);
+    expect(app.panelLeft.classList.contains('collapsed')).toBe(false);
+    expect(app.panelRight.classList.contains('collapsed')).toBe(false);
+
+    // 1. Collapse left panel via toggle button
+    app.btnCollapseLeft?.click();
+    expect(app.state.isLeftCollapsed).toBe(true);
+    expect(app.panelLeft.classList.contains('collapsed')).toBe(true);
+    expect(app.mainContainer.classList.contains('left-collapsed')).toBe(true);
+
+    // 2. Expand left panel via rail button
+    app.railExpandLeft?.click();
+    expect(app.state.isLeftCollapsed).toBe(false);
+    expect(app.panelLeft.classList.contains('collapsed')).toBe(false);
+
+    // 3. Collapse right panel via shortcut Cmd+]
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ']', metaKey: true }));
+    expect(app.state.isRightCollapsed).toBe(true);
+    expect(app.panelRight.classList.contains('collapsed')).toBe(true);
+
+    // 4. Clicking rail tab expands panel and activates tab
+    app.railTabSpec?.click();
+    expect(app.state.isRightCollapsed).toBe(false);
+    expect(app.state.rightTab).toBe('spec');
+
+    // 5. Toggle both panels with Cmd+\
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', metaKey: true }));
+    expect(app.state.isLeftCollapsed).toBe(true);
+    expect(app.state.isRightCollapsed).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', metaKey: true }));
+    expect(app.state.isLeftCollapsed).toBe(false);
+    expect(app.state.isRightCollapsed).toBe(false);
+  });
+
+  it('Case 38: Inspector ASCII icon picker updates icon sprite, preview, and node metadata', () => {
+    // Add icon node
+    const chartCard = document.querySelector<HTMLElement>('[data-create-component="icon:chart"]');
+    chartCard!.click();
+
+    const selected = app.state.getSelectedNode();
+    expect(selected?.type).toBe('icon');
+
+    // Inspector icon group should be visible
+    expect(app.metaIconGroup?.style.display).toBe('block');
+    expect(app.iconArtPreview?.textContent).toContain('█');
+
+    // Change icon name to lock in inspector
+    if (app.propIconName) {
+      app.propIconName.value = 'lock';
+      app.propIconName.dispatchEvent(new Event('change'));
+    }
+
+    const updated = app.state.getSelectedNode();
+    expect(updated?.meta?.iconName).toBe('lock');
+    expect(app.iconArtPreview?.textContent).toContain('┌┴─┴┐');
+  });
 });

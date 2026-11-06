@@ -1,12 +1,44 @@
-import { EditorState, EditorTool, LeftPanelTab, RightPanelTab, TabType } from './editor-state.js';
+import {
+  EditorState,
+  EditorTool,
+  LeftPanelTab,
+  RightPanelTab,
+  TabType,
+  toolToWidgetType,
+} from './editor-state.js';
 import { SceneNode, WidgetType, Rect } from '../core/ast/types.js';
 import { findNodeAt, findNode, addNode } from '../core/ast/mutations.js';
 import { generateWireframeFromPrompt } from '../core/serializer/prompt-to-ast.js';
 import { parseAsciiToNodes } from '../core/serializer/ascii-to-ast.js';
+import {
+  ASCII_ICON_CATALOG,
+  AsciiIconSprite,
+  getAsciiIconSprite,
+  resolveIconKey,
+  inferIconFromActionOrLabel,
+  pickIconTier,
+} from '../core/rasterizer/ascii-icons.js';
 
 export class EditorApp {
   public state: EditorState;
   public root: Document | HTMLElement;
+
+  // Layout & Container Elements
+  public mainContainer!: HTMLElement;
+  public panelLeft!: HTMLElement;
+  public panelRight!: HTMLElement;
+  public btnCollapseLeft?: HTMLButtonElement;
+  public btnCollapseRight?: HTMLButtonElement;
+  public railLeft?: HTMLElement;
+  public railRight?: HTMLElement;
+  public railExpandLeft?: HTMLButtonElement;
+  public railExpandRight?: HTMLButtonElement;
+  public railTabLayers?: HTMLButtonElement;
+  public railTabComponents?: HTMLButtonElement;
+  public railTabDesign?: HTMLButtonElement;
+  public railTabSpec?: HTMLButtonElement;
+  public railTabCode?: HTMLButtonElement;
+  public railTabJson?: HTMLButtonElement;
 
   // Header Elements
   public presetSelect!: HTMLSelectElement;
@@ -102,6 +134,10 @@ export class EditorApp {
   public metaCheckedGroup!: HTMLElement;
   public metaBorderStyleGroup!: HTMLElement;
   public propBorderStyle!: HTMLSelectElement;
+  public metaIconGroup?: HTMLElement;
+  public propIconName?: HTMLSelectElement;
+  public propIconSize?: HTMLSelectElement;
+  public iconArtPreview?: HTMLElement;
   public metaLineGroup!: HTMLElement;
   public propLineEnding!: HTMLSelectElement;
   public propLineDirection!: HTMLSelectElement;
@@ -196,25 +232,30 @@ export class EditorApp {
   private boundKeyUpHandler: (e: KeyboardEvent) => void;
   private boundPointerMove: (e: PointerEvent) => void;
   private boundPointerUp: (e: PointerEvent) => void;
+  private boundResizeHandler: () => void;
 
   constructor(root: Document | HTMLElement = document, state?: EditorState) {
     this.root = root;
     this.state = state ?? new EditorState('dashboard');
     this.bindElements();
     this.initTheme();
+    this.initPanels();
     this.attachEventListeners();
     this.state.subscribe(() => this.updateUI());
     this.updateUI();
+    this.fitIfOverflowing();
 
     this.boundKeyHandler = (e: KeyboardEvent) => this.handleKeyDown(e);
     this.boundKeyUpHandler = (e: KeyboardEvent) => this.handleKeyUp(e);
     this.boundPointerMove = (e: PointerEvent) => this.handlePointerMove(e);
     this.boundPointerUp = (e: PointerEvent) => this.handlePointerUp(e);
+    this.boundResizeHandler = () => this.fitIfOverflowing();
 
     window.addEventListener('keydown', this.boundKeyHandler);
     window.addEventListener('keyup', this.boundKeyUpHandler);
     window.addEventListener('pointermove', this.boundPointerMove);
     window.addEventListener('pointerup', this.boundPointerUp);
+    window.addEventListener('resize', this.boundResizeHandler);
   }
 
   public destroy(): void {
@@ -222,6 +263,7 @@ export class EditorApp {
     window.removeEventListener('keyup', this.boundKeyUpHandler);
     window.removeEventListener('pointermove', this.boundPointerMove);
     window.removeEventListener('pointerup', this.boundPointerUp);
+    window.removeEventListener('resize', this.boundResizeHandler);
   }
 
   private query<T extends HTMLElement>(selector: string): T {
@@ -233,6 +275,22 @@ export class EditorApp {
   }
 
   private bindElements(): void {
+    this.mainContainer = this.query<HTMLElement>('.studio-main');
+    this.panelLeft = this.query<HTMLElement>('#panel-left');
+    this.panelRight = this.query<HTMLElement>('#panel-right');
+    this.btnCollapseLeft = this.root.querySelector<HTMLButtonElement>('#btn-collapse-left') ?? undefined;
+    this.btnCollapseRight = this.root.querySelector<HTMLButtonElement>('#btn-collapse-right') ?? undefined;
+    this.railLeft = this.root.querySelector<HTMLElement>('#rail-left') ?? undefined;
+    this.railRight = this.root.querySelector<HTMLElement>('#rail-right') ?? undefined;
+    this.railExpandLeft = this.root.querySelector<HTMLButtonElement>('#rail-expand-left') ?? undefined;
+    this.railExpandRight = this.root.querySelector<HTMLButtonElement>('#rail-expand-right') ?? undefined;
+    this.railTabLayers = this.root.querySelector<HTMLButtonElement>('#rail-tab-layers') ?? undefined;
+    this.railTabComponents = this.root.querySelector<HTMLButtonElement>('#rail-tab-components') ?? undefined;
+    this.railTabDesign = this.root.querySelector<HTMLButtonElement>('#rail-tab-design') ?? undefined;
+    this.railTabSpec = this.root.querySelector<HTMLButtonElement>('#rail-tab-spec') ?? undefined;
+    this.railTabCode = this.root.querySelector<HTMLButtonElement>('#rail-tab-code') ?? undefined;
+    this.railTabJson = this.root.querySelector<HTMLButtonElement>('#rail-tab-json') ?? undefined;
+
     this.presetSelect = this.query<HTMLSelectElement>('#preset-select');
     this.screenSelect = this.query<HTMLSelectElement>('#screen-select');
     this.btnOrientation = this.query<HTMLButtonElement>('#btn-orientation');
@@ -319,6 +377,21 @@ export class EditorApp {
     this.metaCheckedGroup = this.query<HTMLElement>('#meta-checked-group');
     this.metaBorderStyleGroup = this.query<HTMLElement>('#meta-border-style-group');
     this.propBorderStyle = this.query<HTMLSelectElement>('#prop-border-style');
+
+    this.metaIconGroup = this.root.querySelector<HTMLElement>('#meta-icon-group') ?? undefined;
+    this.propIconName = this.root.querySelector<HTMLSelectElement>('#prop-icon-name') ?? undefined;
+    this.propIconSize = this.root.querySelector<HTMLSelectElement>('#prop-icon-size') ?? undefined;
+    this.iconArtPreview = this.root.querySelector<HTMLElement>('#icon-art-preview') ?? undefined;
+
+    if (this.propIconName && this.propIconName.options.length <= 1) {
+      const doc = this.root instanceof Document ? this.root : document;
+      for (const sprite of ASCII_ICON_CATALOG) {
+        const opt = doc.createElement('option');
+        opt.value = sprite.name;
+        opt.textContent = `${sprite.title} (${sprite.name})`;
+        this.propIconName.appendChild(opt);
+      }
+    }
     this.metaLineGroup = this.query<HTMLElement>('#meta-line-group');
     this.propLineEnding = this.query<HTMLSelectElement>('#prop-line-ending');
     this.propLineDirection = this.query<HTMLSelectElement>('#prop-line-direction');
@@ -476,6 +549,90 @@ export class EditorApp {
     return { cellX, cellY };
   }
 
+  public initPanels(): void {
+    try {
+      const leftCollapsed = localStorage.getItem('ascii-frames-left-collapsed') === 'true';
+      const rightCollapsed = localStorage.getItem('ascii-frames-right-collapsed') === 'true';
+      this.state.isLeftCollapsed = leftCollapsed;
+      this.state.isRightCollapsed = rightCollapsed;
+
+      if (typeof window !== 'undefined' && window.location?.search) {
+        const params = new URLSearchParams(window.location.search);
+        const collapse = params.get('collapse');
+        if (collapse === 'left') this.state.isLeftCollapsed = true;
+        else if (collapse === 'right') this.state.isRightCollapsed = true;
+        else if (collapse === 'both') {
+          this.state.isLeftCollapsed = true;
+          this.state.isRightCollapsed = true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  public savePanelState(): void {
+    try {
+      localStorage.setItem('ascii-frames-left-collapsed', String(this.state.isLeftCollapsed));
+      localStorage.setItem('ascii-frames-right-collapsed', String(this.state.isRightCollapsed));
+    } catch {
+      // ignore
+    }
+  }
+
+  public fitIfOverflowing(): void {
+    if (!this.canvasViewport || !this.artboard) return;
+    const vpW = this.canvasViewport.clientWidth;
+    const vpH = this.canvasViewport.clientHeight;
+    const artW = this.artboard.offsetWidth;
+    const artH = this.artboard.offsetHeight;
+    if (vpW <= 0 || vpH <= 0 || artW <= 0 || artH <= 0) return;
+
+    const availW = vpW - 48;
+    const availH = vpH - 48;
+    if (artW > availW || artH > availH) {
+      const scaleX = availW / artW;
+      const scaleY = availH / artH;
+      const fitZoom = Math.min(1.0, Math.max(0.25, Math.min(scaleX, scaleY)));
+      this.setZoom(Math.floor(fitZoom * 20) / 20);
+    }
+  }
+
+  public resolveComponentSpec(compType: string): {
+    type: WidgetType;
+    label?: string;
+    variant?: 'primary' | 'secondary';
+    meta?: Record<string, unknown>;
+  } {
+    if (compType.startsWith('icon:') || compType === 'icon') {
+      const iconKey = compType.startsWith('icon:') ? compType.slice(5) : 'gear';
+      return {
+        type: 'icon',
+        label: `{${iconKey}}`,
+        meta: { iconName: iconKey, iconSize: 'auto' },
+      };
+    }
+    if (compType === 'container') return { type: 'container' };
+    if (compType === 'circle') return { type: 'circle', label: 'Avatar' };
+    if (compType === 'line') return { type: 'line', label: '' };
+    if (compType === 'button-primary') return { type: 'button', variant: 'primary', label: 'Action' };
+    if (compType === 'button-secondary') return { type: 'button', variant: 'secondary', label: 'Action' };
+    if (compType === 'input') return { type: 'input' };
+    if (compType === 'select') return { type: 'select' };
+    if (compType === 'checkbox') return { type: 'checkbox' };
+    if (compType === 'radio') return { type: 'radio' };
+    if (compType === 'toggle') return { type: 'toggle' };
+    if (compType === 'divider') return { type: 'divider', label: '' };
+    if (compType === 'text') return { type: 'text' };
+    if (compType === 'tabs') return { type: 'tabs', label: '' };
+    if (compType === 'breadcrumbs') return { type: 'breadcrumbs', label: 'Home > Projects > Settings' };
+    if (compType === 'table') return { type: 'table', label: 'Data Table' };
+    if (compType === 'badge') return { type: 'badge', label: 'Active' };
+    if (compType === 'progress') return { type: 'progress', label: '' };
+    if (compType === 'alert') return { type: 'alert', label: 'System update scheduled for midnight' };
+    return { type: 'button' };
+  }
+
   public getComponentDefaultDims(compType: string): { w: number; h: number } {
     if (compType === 'container') return { w: 24, h: 10 };
     if (compType === 'circle') return { w: 8, h: 4 };
@@ -495,97 +652,40 @@ export class EditorApp {
     if (compType === 'badge') return { w: 10, h: 1 };
     if (compType === 'progress') return { w: 24, h: 1 };
     if (compType === 'alert') return { w: 34, h: 3 };
-    if (compType === 'icon') return { w: 6, h: 1 };
+    if (compType === 'icon' || compType.startsWith('icon:')) return { w: 9, h: 3 };
     return { w: 12, h: 1 };
   }
 
   public dropComponentAt(compType: string, cellX: number, cellY: number): string {
-    let type: WidgetType = 'button';
-    let variant: 'primary' | 'secondary' | undefined;
-    let label: string | undefined;
-
+    const spec = this.resolveComponentSpec(compType);
     const dims = this.getComponentDefaultDims(compType);
 
-    if (compType === 'container') {
-      type = 'container';
-      label = 'Container';
-    } else if (compType === 'circle') {
-      type = 'circle';
-      label = 'Avatar';
-    } else if (compType === 'line') {
-      type = 'line';
-      label = '';
-    } else if (compType === 'button-primary') {
-      type = 'button';
-      variant = 'primary';
-      label = 'Action';
-    } else if (compType === 'button-secondary') {
-      type = 'button';
-      variant = 'secondary';
-      label = 'Action';
-    } else if (compType === 'input') {
-      type = 'input';
-      label = 'Placeholder...';
-    } else if (compType === 'select') {
-      type = 'select';
-      label = 'Select option';
-    } else if (compType === 'checkbox') {
-      type = 'checkbox';
-      label = 'Option';
-    } else if (compType === 'radio') {
-      type = 'radio';
-      label = 'Option';
-    } else if (compType === 'toggle') {
-      type = 'toggle';
-      label = 'Enabled';
-    } else if (compType === 'divider') {
-      type = 'divider';
-      label = '';
-    } else if (compType === 'text') {
-      type = 'text';
-      label = 'Text Label';
-    } else if (compType === 'tabs') {
-      type = 'tabs';
-      label = '';
-    } else if (compType === 'breadcrumbs') {
-      type = 'breadcrumbs';
-      label = 'Home > Projects > Settings';
-    } else if (compType === 'table') {
-      type = 'table';
-      label = 'Data Table';
-    } else if (compType === 'badge') {
-      type = 'badge';
-      label = 'Active';
-    } else if (compType === 'progress') {
-      type = 'progress';
-      label = '';
-    } else if (compType === 'alert') {
-      type = 'alert';
-      label = 'System update scheduled for midnight';
-    } else if (compType === 'icon') {
-      type = 'icon';
-      label = '{gear}';
-    }
+    const id = `${spec.type}-${Date.now().toString(36)}`;
+    const defaultLabel = (spec.type === 'line' || spec.type === 'divider' || spec.type === 'tabs' || spec.type === 'progress')
+      ? ''
+      : (spec.type.charAt(0).toUpperCase() + spec.type.slice(1));
 
-    const id = `${type}-${Date.now().toString(36)}`;
     const newNode: SceneNode = {
       id,
-      type,
+      type: spec.type,
       rect: {
         x: Math.max(0, cellX),
         y: Math.max(0, cellY),
         w: dims.w,
         h: dims.h,
       },
-      zIndex: type === 'container' ? 0 : 1,
-      label,
-      meta: variant ? { variant } : undefined,
+      zIndex: spec.type === 'container' ? 0 : 1,
+      label: spec.label ?? defaultLabel,
+      meta: {
+        ...(spec.variant ? { variant: spec.variant } : {}),
+        ...(spec.meta || {}),
+      },
     };
 
     this.state.setNodes(addNode(this.state.nodes, newNode));
     this.state.selectNode(id);
     this.state.setTool('select');
-    this.showToast(`Placed ${type} at (${newNode.rect.x}, ${newNode.rect.y})`);
+    this.showToast(`Placed ${spec.type} at (${newNode.rect.x}, ${newNode.rect.y})`);
     return id;
   }
 
@@ -1047,6 +1147,21 @@ export class EditorApp {
         this.metaAlertGroup.style.display = 'none';
       }
 
+      if (selected.type === 'icon' || selected.type === 'button') {
+        if (this.metaIconGroup) {
+          this.metaIconGroup.style.display = 'block';
+          if (this.propIconName) {
+            this.propIconName.value = (selected.meta?.iconName as string) ?? '';
+          }
+          if (this.propIconSize) {
+            this.propIconSize.value = (selected.meta?.iconSize as string) ?? 'auto';
+          }
+          this.updateIconArtPreview(selected);
+        }
+      } else if (this.metaIconGroup) {
+        this.metaIconGroup.style.display = 'none';
+      }
+
       if (selected.type === 'table') {
         if (this.metaTableGroup) {
           this.metaTableGroup.style.display = 'block';
@@ -1089,6 +1204,42 @@ export class EditorApp {
     }
     if (this.codeTargetSelect) {
       this.codeTargetSelect.value = this.state.codeTarget;
+    }
+
+    // Update Collapsible Panel States
+    if (this.mainContainer) {
+      this.mainContainer.classList.toggle('left-collapsed', Boolean(this.state.isLeftCollapsed));
+      this.mainContainer.classList.toggle('right-collapsed', Boolean(this.state.isRightCollapsed));
+    }
+    if (this.panelLeft) {
+      this.panelLeft.classList.toggle('collapsed', Boolean(this.state.isLeftCollapsed));
+    }
+    if (this.panelRight) {
+      this.panelRight.classList.toggle('collapsed', Boolean(this.state.isRightCollapsed));
+    }
+    if (this.btnCollapseLeft) {
+      this.btnCollapseLeft.textContent = this.state.isLeftCollapsed ? '»' : '«';
+      this.btnCollapseLeft.title = this.state.isLeftCollapsed
+        ? 'Expand Left Panel (Cmd+[)'
+        : 'Collapse Left Panel (Cmd+[';
+    }
+    if (this.btnCollapseRight) {
+      this.btnCollapseRight.textContent = this.state.isRightCollapsed ? '«' : '»';
+      this.btnCollapseRight.title = this.state.isRightCollapsed
+        ? 'Expand Right Panel (Cmd+])'
+        : 'Collapse Right Panel (Cmd+])';
+    }
+    if (this.railTabLayers && this.railTabComponents) {
+      this.railTabLayers.classList.toggle('active', this.state.leftTab === 'layers');
+      this.railTabComponents.classList.toggle('active', this.state.leftTab === 'components');
+    }
+    if (this.railTabDesign && this.railTabSpec && this.railTabJson) {
+      this.railTabDesign.classList.toggle('active', this.state.rightTab === 'design');
+      this.railTabSpec.classList.toggle('active', this.state.rightTab === 'spec');
+      this.railTabJson.classList.toggle('active', this.state.rightTab === 'json');
+      if (this.railTabCode) {
+        this.railTabCode.classList.toggle('active', this.state.rightTab === 'code');
+      }
     }
 
     // 7. Update Canvas Stage Dimensions for Zoom
@@ -1204,6 +1355,44 @@ export class EditorApp {
       opt.textContent = `-> ${s.name}`;
       this.propTransition.appendChild(opt);
     });
+  }
+
+  public updateIconArtPreview(node: SceneNode): void {
+    if (!this.iconArtPreview) return;
+    const explicitKey = node.meta?.iconName;
+    let sprite: AsciiIconSprite | null = null;
+    let caption: string | undefined;
+
+    if (explicitKey) {
+      const parsed = resolveIconKey(explicitKey);
+      sprite = getAsciiIconSprite(parsed.iconKey);
+      caption = parsed.caption;
+    } else {
+      sprite = inferIconFromActionOrLabel(node.meta?.action, node.label);
+      if (!sprite && node.label) {
+        const parsed = resolveIconKey(node.label);
+        sprite = getAsciiIconSprite(parsed.iconKey);
+        caption = parsed.caption;
+      }
+    }
+
+    if (!sprite) {
+      this.iconArtPreview.textContent = '(no icon match)';
+      return;
+    }
+    const tier = node.meta?.iconSize ?? 'auto';
+    let lines: string[] = [];
+    if (tier === 'art5' && sprite.art5) {
+      lines = sprite.art5;
+    } else if (tier === 'art3' && sprite.art3) {
+      lines = sprite.art3;
+    } else if (tier === 'glyph') {
+      lines = [sprite.glyph];
+    } else {
+      const picked = pickIconTier(sprite, node.rect.w, node.rect.h, Boolean(caption));
+      lines = picked ? picked.rows : (sprite.art3 ?? [sprite.glyph]);
+    }
+    this.iconArtPreview.textContent = lines.join('\n');
   }
 
   public updateSelectionOverlay(): void {
@@ -1435,40 +1624,102 @@ export class EditorApp {
           }
 
           const compType = card.dataset.createComponent!;
-          let type: WidgetType = 'button';
-          let variant: 'primary' | 'secondary' | undefined;
-
-          if (compType === 'container') type = 'container';
-          else if (compType === 'circle') type = 'circle';
-          else if (compType === 'line') type = 'line';
-          else if (compType === 'button-primary') {
-            type = 'button';
-            variant = 'primary';
-          } else if (compType === 'button-secondary') {
-            type = 'button';
-            variant = 'secondary';
-          } else if (compType === 'input') type = 'input';
-          else if (compType === 'select') type = 'select';
-          else if (compType === 'checkbox') type = 'checkbox';
-          else if (compType === 'radio') type = 'radio';
-          else if (compType === 'toggle') type = 'toggle';
-          else if (compType === 'divider') type = 'divider';
-          else if (compType === 'text') type = 'text';
-          else if (compType === 'tabs') type = 'tabs';
-          else if (compType === 'breadcrumbs') type = 'breadcrumbs';
-          else if (compType === 'table') type = 'table';
-          else if (compType === 'badge') type = 'badge';
-          else if (compType === 'progress') type = 'progress';
-          else if (compType === 'alert') type = 'alert';
-
-          const newId = this.state.addNewNode(type);
-          if (variant) {
-            this.state.updateSelected({ meta: { variant } });
+          const spec = this.resolveComponentSpec(compType);
+          const newId = this.state.addNewNode(spec.type);
+          const updates: Partial<SceneNode> = {};
+          if (spec.label !== undefined) updates.label = spec.label;
+          if (spec.variant || spec.meta) {
+            updates.meta = {
+              ...(spec.variant ? { variant: spec.variant } : {}),
+              ...(spec.meta || {}),
+            };
+          }
+          if (Object.keys(updates).length > 0) {
+            this.state.updateSelected(updates);
           }
           this.state.setLeftTab('layers');
-          this.showToast(`Added ${type}`);
+          this.showToast(`Added ${spec.type}`);
         });
       });
+
+    // Collapsible Panels (Left & Right)
+    this.btnCollapseLeft?.addEventListener('click', () => {
+      this.state.toggleLeftPanel();
+      this.savePanelState();
+      this.fitIfOverflowing();
+    });
+
+    this.railExpandLeft?.addEventListener('click', () => {
+      this.state.toggleLeftPanel();
+      this.savePanelState();
+      this.fitIfOverflowing();
+    });
+
+    this.btnCollapseRight?.addEventListener('click', () => {
+      this.state.toggleRightPanel();
+      this.savePanelState();
+      this.fitIfOverflowing();
+    });
+
+    this.railExpandRight?.addEventListener('click', () => {
+      this.state.toggleRightPanel();
+      this.savePanelState();
+      this.fitIfOverflowing();
+    });
+
+    this.railTabLayers?.addEventListener('click', () => {
+      this.state.setLeftTab('layers');
+      if (this.state.isLeftCollapsed) {
+        this.state.toggleLeftPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+      }
+    });
+
+    this.railTabComponents?.addEventListener('click', () => {
+      this.state.setLeftTab('components');
+      if (this.state.isLeftCollapsed) {
+        this.state.toggleLeftPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+      }
+    });
+
+    this.railTabDesign?.addEventListener('click', () => {
+      this.state.setRightTab('design');
+      if (this.state.isRightCollapsed) {
+        this.state.toggleRightPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+      }
+    });
+
+    this.railTabSpec?.addEventListener('click', () => {
+      this.state.setRightTab('spec');
+      if (this.state.isRightCollapsed) {
+        this.state.toggleRightPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+      }
+    });
+
+    this.railTabCode?.addEventListener('click', () => {
+      this.state.setRightTab('code');
+      if (this.state.isRightCollapsed) {
+        this.state.toggleRightPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+      }
+    });
+
+    this.railTabJson?.addEventListener('click', () => {
+      this.state.setRightTab('json');
+      if (this.state.isRightCollapsed) {
+        this.state.toggleRightPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+      }
+    });
 
     // Canvas Viewport Drag-and-Drop Handlers
     const handleDragOver = (e: DragEvent) => {
@@ -1911,6 +2162,28 @@ export class EditorApp {
         if (!cur || cur.type !== 'container') return;
         this.state.reflowContainer(cur.id);
         this.showToast('Reflowed stack layout');
+      });
+    }
+
+    if (this.propIconName) {
+      this.propIconName.addEventListener('change', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur) return;
+        const iconName = this.propIconName!.value || undefined;
+        this.state.updateSelected({
+          meta: { ...cur.meta, iconName },
+        });
+      });
+    }
+
+    if (this.propIconSize) {
+      this.propIconSize.addEventListener('change', () => {
+        const cur = this.state.getSelectedNode();
+        if (!cur) return;
+        const iconSize = this.propIconSize!.value as any;
+        this.state.updateSelected({
+          meta: { ...cur.meta, iconSize },
+        });
       });
     }
 
@@ -2580,7 +2853,7 @@ export class EditorApp {
       const cellH = Math.max(1, Math.abs(cellY - this.startPoint.cellY) + 1);
 
       const tool = this.state.activeTool;
-      const type: WidgetType = (tool === 'select' || tool === 'hand') ? 'container' : tool;
+      const type: WidgetType = toolToWidgetType(tool) ?? 'container';
       this.state.createNodeAt(type, {
         x: minCellX,
         y: minCellY,
@@ -2711,6 +2984,41 @@ export class EditorApp {
       if (e.key === 't' || e.key === 'T') {
         this.state.setTool('text');
         this.showToast('Tool: Text (T)');
+        return;
+      }
+      if (e.key === 'k' || e.key === 'K') {
+        this.state.setTool('icon');
+        this.showToast('Tool: ASCII Icon (K)');
+        return;
+      }
+    }
+
+    // Panel Collapse Shortcuts: Cmd+[ (left), Cmd+] (right), Cmd+\ (both)
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key === '[') {
+        this.state.toggleLeftPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+        this.showToast(`Left Panel: ${this.state.isLeftCollapsed ? 'Collapsed' : 'Expanded'}`);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === ']') {
+        this.state.toggleRightPanel();
+        this.savePanelState();
+        this.fitIfOverflowing();
+        this.showToast(`Right Panel: ${this.state.isRightCollapsed ? 'Collapsed' : 'Expanded'}`);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === '\\') {
+        const collapseBoth = !this.state.isLeftCollapsed || !this.state.isRightCollapsed;
+        this.state.toggleLeftPanel(collapseBoth);
+        this.state.toggleRightPanel(collapseBoth);
+        this.savePanelState();
+        this.fitIfOverflowing();
+        this.showToast(`Panels: ${collapseBoth ? 'Collapsed' : 'Expanded'}`);
+        e.preventDefault();
         return;
       }
     }

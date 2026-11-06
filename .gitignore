@@ -14,6 +14,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Temporary diagnostic artifacts & screenshots
+temp/
+
 # Environment and local overrides
 *.local
 .env

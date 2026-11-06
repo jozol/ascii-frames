@@ -22,57 +22,62 @@
       <!-- Figma Toolset -->
       <nav class="tool-group" role="toolbar" aria-label="Editor Tools">
         <button id="tool-select" class="tool-btn active" data-tool="select" title="Select & Move (V)">
-          <span>-&gt;</span>
+          <span class="btn-ascii-art">↖</span>
           <span>Select</span>
           <span class="tool-badge">V</span>
         </button>
         <button id="tool-hand" class="tool-btn" data-tool="hand" title="Hand Tool / Pan Canvas (H or Space+Drag)">
-          <span>[H]</span>
+          <span class="btn-ascii-art">╬</span>
           <span>Hand</span>
           <span class="tool-badge">H</span>
         </button>
         <button id="tool-container" class="tool-btn" data-tool="container" title="Frame / Container (F)">
-          <span>[#]</span>
+          <span class="btn-ascii-art">┌┐</span>
           <span>Frame</span>
           <span class="tool-badge">F</span>
         </button>
         <button id="tool-circle" class="tool-btn" data-tool="circle" title="Ellipse / Circle / Avatar (O)">
-          <span>(O)</span>
+          <span class="btn-ascii-art">╭╮</span>
           <span>Circle</span>
           <span class="tool-badge">O</span>
         </button>
         <button id="tool-line" class="tool-btn" data-tool="line" title="Line / Connector (L)">
-          <span>--&gt;</span>
+          <span class="btn-ascii-art">─►</span>
           <span>Line</span>
           <span class="tool-badge">L</span>
         </button>
         <button id="tool-button" class="tool-btn" data-tool="button" title="Button (B)">
-          <span>[B]</span>
+          <span class="btn-ascii-art">[#]</span>
           <span>Button</span>
           <span class="tool-badge">B</span>
         </button>
         <button id="tool-input" class="tool-btn" data-tool="input" title="Input Field (I)">
-          <span>[_]</span>
+          <span class="btn-ascii-art">[▏]</span>
           <span>Input</span>
           <span class="tool-badge">I</span>
         </button>
-        <button id="tool-select-widget" class="tool-btn" data-tool="select" title="Select Dropdown (S)">
-          <span>[v]</span>
+        <button id="tool-select-widget" class="tool-btn" data-tool="dropdown" title="Select Dropdown (S)">
+          <span class="btn-ascii-art">[▾]</span>
           <span>Dropdown</span>
         </button>
         <button id="tool-toggle" class="tool-btn" data-tool="toggle" title="Toggle Switch (G)">
-          <span>(-o)</span>
+          <span class="btn-ascii-art">━●</span>
           <span>Toggle</span>
         </button>
         <button id="tool-divider" class="tool-btn" data-tool="divider" title="Divider (D)">
-          <span>--</span>
+          <span class="btn-ascii-art">──</span>
           <span>Divider</span>
           <span class="tool-badge">D</span>
         </button>
         <button id="tool-text" class="tool-btn" data-tool="text" title="Text Label (T)">
-          <span>T</span>
+          <span class="btn-ascii-art">Tt</span>
           <span>Text</span>
           <span class="tool-badge">T</span>
+        </button>
+        <button id="tool-icon" class="tool-btn" data-tool="icon" title="ASCII Art Icon (K)">
+          <span class="btn-ascii-art">✦</span>
+          <span>Icon</span>
+          <span class="tool-badge">K</span>
         </button>
       </nav>
 
@@ -107,24 +112,15 @@
 
       <!-- Right Actions & Presets -->
       <div class="toolbar-right">
-        <span id="render-timer" class="tool-badge" style="color: var(--brand-primary); font-weight: 600;" title="Rasterization frame budget">0.1ms (&lt; 2ms)</span>
-        <button id="btn-play-mode" class="btn-zen-primary" style="padding: 4px 10px; font-size: 0.76rem;" title="Play Interactive Prototype (Cmd/Ctrl + P)">[►] Play</button>
+        <button id="btn-play-mode" class="btn-zen-primary" style="padding: 4px 10px; font-size: 0.76rem;" title="Play Interactive Prototype (Cmd/Ctrl + P)">
+          <span class="btn-ascii-art">▶</span>
+          <span id="play-btn-label">Play</span>
+        </button>
 
-        <button id="btn-undo" class="btn-tool" title="Undo (Cmd+Z)">&lt;-</button>
-        <button id="btn-redo" class="btn-tool" title="Redo (Cmd+Shift+Z)">-&gt;</button>
-        <button id="btn-duplicate" class="btn-tool" title="Duplicate (Cmd+D)">[+] Dup</button>
-        <button id="btn-clear" class="btn-tool" title="Clear Canvas">[x] Clear</button>
-        <button id="btn-prompt-ai" class="btn-tool" title="Generate Wireframe from Prompt">[✦] Prompt</button>
-        <button id="btn-import-ascii" class="btn-tool" title="Import Raw ASCII Wireframe">[:] Import</button>
-
-        <!-- Template starter helper -->
-        <select id="preset-select" class="field-select" style="padding: 3px 6px; font-size: 0.75rem;">
-          <option value="" disabled selected>Starter Templates...</option>
-          <option value="mobile-app">[|] Mobile Banking App</option>
-          <option value="dashboard">[=] Web Dashboard</option>
-          <option value="login-modal">[*] Sign In Dialog</option>
-          <option value="watch-glance">(o) Smartwatch Glance</option>
-        </select>
+        <button id="btn-undo" class="btn-tool" title="Undo (Cmd+Z)"><span class="btn-ascii-art">↶</span></button>
+        <button id="btn-redo" class="btn-tool" title="Redo (Cmd+Shift+Z)"><span class="btn-ascii-art">↷</span></button>
+        <button id="btn-duplicate" class="btn-tool" title="Duplicate (Cmd+D)"><span class="btn-ascii-art">⧉</span> Dup</button>
+        <button id="btn-clear" class="btn-tool" title="Clear Canvas"><span class="btn-ascii-art">⌫</span> Clear</button>
 
         <button id="theme-toggle" class="btn-tool" title="Toggle Dark/Light Theme">
           <span id="theme-icon">[*]</span>
@@ -135,10 +131,18 @@
     <!-- Main Studio Workspace -->
     <main class="studio-main">
       <!-- Left Panel: Layers / Components -->
-      <aside class="studio-panel">
+      <aside class="studio-panel panel-left" id="panel-left">
         <div class="sidebar-tabs">
           <button id="tab-layers" class="sidebar-tab-btn active">Layers</button>
           <button id="tab-components" class="sidebar-tab-btn">Components</button>
+          <button id="btn-collapse-left" class="btn-collapse-toggle" title="Collapse Left Panel (Cmd+[)">«</button>
+        </div>
+
+        <!-- Collapsed Rail Strip -->
+        <div id="rail-left" class="panel-rail" style="display: none;">
+          <button id="rail-tab-layers" class="rail-tab-btn active" title="Layers">☰</button>
+          <button id="rail-tab-components" class="rail-tab-btn" title="Components">▦</button>
+          <button id="rail-expand-left" class="rail-expand-btn" title="Expand Left Panel (Cmd+[)">»</button>
         </div>
 
         <!-- Layers View -->
@@ -148,6 +152,65 @@
 
         <!-- Components Asset Gallery -->
         <div id="view-components" class="panel-scrollable" style="display: none;">
+          <div class="component-section">
+            <span class="component-section-title">ASCII Art Icons</span>
+            <div class="component-card-grid icon-grid">
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:user">
+                <pre class="component-card-art">  ╭─╮  
+  ╰┬╯  
+ ╭─┴─╮ </pre>
+                <div class="component-card-name">User</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:chart">
+                <pre class="component-card-art">│   ▃ █
+│ ▅ █ █
+└──────</pre>
+                <div class="component-card-name">Chart</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:cloud">
+                <pre class="component-card-art">  ╭──╮ 
+╭─╯  ╰╮
+╰─────╯</pre>
+                <div class="component-card-name">Cloud</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:camera">
+                <pre class="component-card-art">┌─┬─┬─┐
+│ (o) │
+└─────┘</pre>
+                <div class="component-card-name">Camera</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:lock">
+                <pre class="component-card-art">  ╭─╮  
+ ┌┴─┴┐ 
+ └─█─┘ </pre>
+                <div class="component-card-name">Lock</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:mail">
+                <pre class="component-card-art">┌─────┐
+│╲___╱│
+└─────┘</pre>
+                <div class="component-card-name">Mail</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:home">
+                <pre class="component-card-art">  ╱╲  
+ ╱  ╲ 
+ │▐▌│ </pre>
+                <div class="component-card-name">Home</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:search">
+                <pre class="component-card-art"> ╭──╮  
+ ╰──╯╲ 
+     ╲╲</pre>
+                <div class="component-card-name">Search</div>
+              </div>
+              <div class="component-card icon-card" draggable="true" data-create-component="icon:gear">
+                <pre class="component-card-art"> ▖╭─╮▗ 
+ ─┤o├─ 
+ ▘╰─╯▝ </pre>
+                <div class="component-card-name">Gear</div>
+              </div>
+            </div>
+          </div>
           <div class="component-section">
             <span class="component-section-title">Containers & Layout</span>
             <div class="component-card-grid">
@@ -326,7 +389,17 @@
             </div>
           </div>
           <div class="screen-flow-right">
-            <button id="btn-add-screen" class="btn-screen-add" title="Add New Screen / Artboard">[+] Screen</button>
+            <!-- Template starter helper -->
+            <select id="preset-select" class="field-select" style="padding: 3px 6px; font-size: 0.75rem;">
+              <option value="" disabled selected>Templates...</option>
+              <option value="mobile-app">[|] Mobile Banking App</option>
+              <option value="dashboard">[=] Web Dashboard</option>
+              <option value="login-modal">[*] Sign In Dialog</option>
+              <option value="watch-glance">(o) Smartwatch Glance</option>
+            </select>
+            <button id="btn-prompt-ai" class="btn-tool" title="Generate Wireframe from Prompt"><span class="btn-ascii-art">✦</span> Prompt</button>
+            <button id="btn-import-ascii" class="btn-tool" title="Import Raw ASCII Wireframe"><span class="btn-ascii-art">⤓</span> Import</button>
+            <button id="btn-add-screen" class="btn-screen-add" title="Add New Screen / Artboard">+ Screen</button>
           </div>
         </div>
 
@@ -371,6 +444,7 @@
 
         <!-- Floating Canvas Zoom HUD -->
         <div id="zoom-controls" class="canvas-zoom-hud" role="toolbar" aria-label="Canvas Zoom Controls">
+          <span id="render-timer" class="tool-badge" style="color: var(--brand-primary); font-weight: 600; padding: 2px 6px;" title="Rasterization frame budget">0.1ms</span>
           <button id="btn-zoom-out" class="zoom-btn" title="Zoom Out (Cmd/Ctrl + -)">[-]</button>
           <button id="btn-zoom-level" class="zoom-level-btn" title="Reset Zoom / Cycle (Cmd/Ctrl + 0)">100%</button>
           <button id="btn-zoom-in" class="zoom-btn" title="Zoom In (Cmd/Ctrl + +)">[+]</button>
@@ -380,13 +454,23 @@
       </section>
 
       <!-- Right Panel: Design & Spec Inspector -->
-      <aside class="studio-panel panel-right">
+      <aside class="studio-panel panel-right" id="panel-right">
         <div class="sidebar-tabs">
+          <button id="btn-collapse-right" class="btn-collapse-toggle" title="Collapse Right Panel (Cmd+])">»</button>
           <button id="tab-design" class="sidebar-tab-btn active" data-tab="preview">Design</button>
-          <button id="tab-spec" class="sidebar-tab-btn" data-tab="markdown">Spec (MD)</button>
+          <button id="tab-spec" class="sidebar-tab-btn" data-tab="markdown">Spec</button>
           <button id="tab-code" class="sidebar-tab-btn" data-tab="code">Code</button>
-          <button id="tab-json" class="sidebar-tab-btn" data-tab="json">AST JSON</button>
-          <button id="btn-toggle-wide" class="sidebar-tab-btn btn-wide-toggle" title="Toggle Wide View (Expand Panel)" style="flex: 0 0 40px;">&lt;&gt;</button>
+          <button id="tab-json" class="sidebar-tab-btn" data-tab="json">JSON</button>
+          <button id="btn-toggle-wide" class="sidebar-tab-btn btn-wide-toggle" title="Toggle Wide View (Expand Panel)" style="flex: 0 0 34px;">&lt;&gt;</button>
+        </div>
+
+        <!-- Collapsed Rail Strip -->
+        <div id="rail-right" class="panel-rail" style="display: none;">
+          <button id="rail-expand-right" class="rail-expand-btn" title="Expand Right Panel (Cmd+])">«</button>
+          <button id="rail-tab-design" class="rail-tab-btn active" title="Design">◈</button>
+          <button id="rail-tab-spec" class="rail-tab-btn" title="Spec">≡</button>
+          <button id="rail-tab-code" class="rail-tab-btn" title="Code">&lt;/&gt;</button>
+          <button id="rail-tab-json" class="rail-tab-btn" title="JSON">{ }</button>
         </div>
 
         <!-- Design Inspector -->
@@ -504,6 +588,24 @@
                     <input id="prop-stack-gap" type="number" min="0" max="10" value="1" class="field-input" style="width: 44px;" />
                     <button id="btn-reflow-stack" class="btn-tool" style="font-size: 0.7rem; padding: 2px 6px;">Reflow</button>
                   </div>
+                </div>
+              </div>
+
+              <div id="meta-icon-group" style="display: none; margin-top: 6px;">
+                <label for="prop-icon-name" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">ASCII Icon:</label>
+                <select id="prop-icon-name" class="field-select" style="width: 100%; margin-bottom: 4px;">
+                  <option value="">(Auto-inferred from action/label)</option>
+                </select>
+                <label for="prop-icon-size" style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Size Tier:</label>
+                <select id="prop-icon-size" class="field-select" style="width: 100%; margin-bottom: 6px;">
+                  <option value="auto">Auto (Fits W × H)</option>
+                  <option value="art5">Large Art (9×5)</option>
+                  <option value="art3">Medium Art (7×3)</option>
+                  <option value="glyph">Inline Glyph (3×1)</option>
+                </select>
+                <div class="icon-art-preview-wrap" style="padding: 6px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 4px; text-align: center;">
+                  <span style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Sprite Preview</span>
+                  <pre id="icon-art-preview" style="font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.1; margin: 0; color: var(--accent); display: inline-block; text-align: left;"></pre>
                 </div>
               </div>
 

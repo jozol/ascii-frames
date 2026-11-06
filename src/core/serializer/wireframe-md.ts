@@ -1,5 +1,6 @@
 import { SceneNode, ScreenConfig, ArtboardScreen, SCREEN_PRESETS } from '../ast/types.js';
 import { flattenNodes, rasterizeScene } from '../rasterizer/widget-stampers.js';
+import { resolveIconKey } from '../rasterizer/ascii-icons.js';
 
 export interface WireframeOptions {
   title?: string;
@@ -20,15 +21,17 @@ export function serializeToWireframe(
 
   const allNodes = flattenNodes(nodes);
 
-  // Extract nodes with meta annotations (actions, bindings, layout rules, transitions)
+  // Extract nodes with meta annotations (icons, actions, bindings, layout rules, transitions)
   const annotatedNodes = allNodes.filter((node) => {
     const meta = node.meta;
     return Boolean(
-      meta &&
-        (meta.action ||
+      node.type === 'icon' ||
+      (meta &&
+        ((meta.iconName && meta.iconName !== 'none') ||
+          meta.action ||
           meta.binding ||
           meta.layoutRule ||
-          meta.transitionTarget)
+          meta.transitionTarget))
     );
   });
 
@@ -55,12 +58,20 @@ export function serializeToWireframe(
 
   if (annotatedNodes.length > 0) {
     const listItems = annotatedNodes.map((node) => {
-      const meta = node.meta!;
+      const meta = node.meta;
       const details: string[] = [];
-      if (meta.action) details.push(`action: ${meta.action}`);
-      if (meta.binding) details.push(`binding: ${meta.binding}`);
-      if (meta.layoutRule) details.push(`layoutRule: ${meta.layoutRule}`);
-      if (meta.transitionTarget) details.push(`navigatesTo: ${meta.transitionTarget}`);
+      if (node.type === 'icon' || (meta?.iconName && meta.iconName !== 'none')) {
+        const iconKey = (meta?.iconName && meta.iconName !== 'auto')
+          ? meta.iconName
+          : resolveIconKey(node.label).iconKey;
+        if (iconKey && iconKey !== 'none' && iconKey !== 'auto') {
+          details.push(`icon: ${iconKey}`);
+        }
+      }
+      if (meta?.action) details.push(`action: ${meta.action}`);
+      if (meta?.binding) details.push(`binding: ${meta.binding}`);
+      if (meta?.layoutRule) details.push(`layoutRule: ${meta.layoutRule}`);
+      if (meta?.transitionTarget) details.push(`navigatesTo: ${meta.transitionTarget}`);
 
       const labelPart = node.label ? ` (${node.label})` : '';
       return `- **${node.id}**${labelPart}: ${details.join(', ')}`;

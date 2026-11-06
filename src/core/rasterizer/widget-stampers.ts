@@ -7,6 +7,13 @@ import {
 } from './bitmask-junctions.js';
 import { CharGrid } from './char-grid.js';
 import {
+  getAsciiIconSprite,
+  resolveIconKey,
+  inferIconFromActionOrLabel,
+  pickIconTier,
+  AsciiIconSprite,
+} from './ascii-icons.js';
+import {
   stampBadge,
   stampProgress,
   stampAlert,
@@ -78,44 +85,140 @@ export function stampContainer(grid: CharGrid, node: SceneNode): void {
 }
 
 export function stampIcon(grid: CharGrid, node: SceneNode): void {
-  const iconRaw = node.label || node.meta?.iconName || '{gear}';
-  const iconStr = iconRaw.startsWith('{') ? expandIconMacros(iconRaw) : expandIconMacros(`{${iconRaw}}`);
-  grid.writeText(node.rect.x, node.rect.y, iconStr, node.rect.w > 0 ? node.rect.w : undefined);
+  const { x, y, w, h } = node.rect;
+  const parsed = resolveIconKey(node.label);
+  const iconKey = node.meta?.iconName ?? parsed.iconKey;
+  const caption = node.meta?.iconName ? (node.label?.trim() || undefined) : parsed.caption;
+  const sprite = getAsciiIconSprite(iconKey);
+
+  if (h < 3) {
+    let line: string;
+    if (node.label && node.label.includes('{')) {
+      line = expandIconMacros(node.label);
+    } else if (caption) {
+      line = `${sprite.glyph} ${caption}`;
+    } else {
+      line = sprite.glyph;
+    }
+    grid.writeText(x, y, line, w > 0 ? w : undefined);
+    return;
+  }
+
+  const tier = pickIconTier(sprite, w, h, Boolean(caption));
+  if (tier) {
+    const artW = tier.rows[0].length;
+    const artH = tier.rows.length;
+    const usedH = artH + (tier.captionFits && caption ? 1 : 0);
+    const ox = x + Math.max(0, Math.floor((w - artW) / 2));
+    const oy = y + Math.max(0, Math.floor((h - usedH) / 2));
+    grid.stampSprite(ox, oy, tier.rows, node.rect);
+    if (caption && tier.captionFits) {
+      const cap = caption.length > w ? caption.slice(0, w) : caption;
+      const capX = x + Math.max(0, Math.floor((w - cap.length) / 2));
+      grid.writeText(capX, oy + artH, cap, w);
+    }
+  } else {
+    const line = caption ? `${sprite.glyph} ${caption}` : sprite.glyph;
+    const midY = y + Math.floor(h / 2);
+    const lineW = Math.min(line.length, w > 0 ? w : line.length);
+    const lineX = x + Math.max(0, Math.floor(((w > 0 ? w : lineW) - lineW) / 2));
+    grid.writeText(lineX, midY, line, w > 0 ? w : undefined);
+  }
 }
 
 export function stampButton(grid: CharGrid, node: SceneNode): void {
   const isPrimary = node.meta?.variant === 'primary';
-  const label = expandIconMacros(node.label ?? '');
-  let str: string;
+  const { x, y, w, h } = node.rect;
 
-  if (isPrimary) {
-    const minLen = label.length + 6; // '[# ' + label + ' #]'
-    if (node.rect.w > minLen) {
-      const extra = node.rect.w - 4 - label.length;
-      const padLeft = Math.floor(extra / 2);
-      const padRight = extra - padLeft;
-      str = `[#${' '.repeat(padLeft)}${label}${' '.repeat(padRight)}#]`;
-    } else {
-      str = `[# ${label} #]`;
+  if (h < 3) {
+    let rawLabel = node.label ?? '';
+    // If explicit iconName is set on 1-row button, prepend glyph
+    if (node.meta?.iconName && node.meta.iconName !== 'none' && node.meta.iconName !== 'auto') {
+      const sp = getAsciiIconSprite(node.meta.iconName);
+      if (!rawLabel.includes(sp.glyph)) {
+        rawLabel = rawLabel ? `${sp.glyph} ${rawLabel}` : sp.glyph;
+      }
     }
-  } else {
-    const minLen = label.length + 4; // '[ ' + label + ' ]'
-    if (node.rect.w > minLen) {
-      const extra = node.rect.w - 2 - label.length;
-      const padLeft = Math.floor(extra / 2);
-      const padRight = extra - padLeft;
-      str = `[${' '.repeat(padLeft)}${label}${' '.repeat(padRight)}]`;
+    const label = expandIconMacros(rawLabel);
+    let str: string;
+
+    if (isPrimary) {
+      const minLen = label.length + 6; // '[# ' + label + ' #]'
+      if (w > minLen) {
+        const extra = w - 4 - label.length;
+        const padLeft = Math.floor(extra / 2);
+        const padRight = extra - padLeft;
+        str = `[#${' '.repeat(padLeft)}${label}${' '.repeat(padRight)}#]`;
+      } else {
+        str = `[# ${label} #]`;
+      }
     } else {
-      str = `[ ${label} ]`;
+      const minLen = label.length + 4; // '[ ' + label + ' ]'
+      if (w > minLen) {
+        const extra = w - 2 - label.length;
+        const padLeft = Math.floor(extra / 2);
+        const padRight = extra - padLeft;
+        str = `[${' '.repeat(padLeft)}${label}${' '.repeat(padRight)}]`;
+      } else {
+        str = `[ ${label} ]`;
+      }
+    }
+
+    grid.writeText(x, y, str, w > 0 ? w : undefined);
+    return;
+  }
+
+  // Multi-Line Button Card (h >= 3)
+  grid.drawBox(node.rect, undefined, isPrimary ? 'double' : 'rounded');
+
+  // Determine icon
+  let sprite: AsciiIconSprite | null = null;
+  if (node.meta?.iconName === 'none') {
+    sprite = null;
+  } else if (node.meta?.iconName && node.meta.iconName !== 'auto') {
+    sprite = getAsciiIconSprite(node.meta.iconName);
+  } else {
+    sprite = inferIconFromActionOrLabel(node.meta?.action, node.label);
+  }
+
+  const labelText = expandIconMacros(node.label ?? '');
+  const btnLabel = isPrimary ? `[# ${labelText} #]` : `[ ${labelText} ]`;
+  const innerW = Math.max(1, w - 2);
+  const innerH = Math.max(1, h - 2);
+
+  if (sprite && h >= 5) {
+    const tier = pickIconTier(sprite, innerW, innerH - 1, false);
+    if (tier) {
+      const artW = tier.rows[0].length;
+      const artH = tier.rows.length;
+      const ox = x + 1 + Math.max(0, Math.floor((innerW - artW) / 2));
+      const oy = y + 1 + Math.max(0, Math.floor((innerH - 1 - artH) / 2));
+      grid.stampSprite(ox, oy, tier.rows, { x: x + 1, y: y + 1, w: innerW, h: innerH });
+
+      const cap = btnLabel.length <= innerW ? btnLabel : (labelText.length <= innerW ? labelText : labelText.slice(0, innerW));
+      const capX = x + 1 + Math.max(0, Math.floor((innerW - cap.length) / 2));
+      grid.writeText(capX, y + h - 2, cap, innerW);
+      return;
     }
   }
 
-  grid.writeText(
-    node.rect.x,
-    node.rect.y,
-    str,
-    node.rect.w > 0 ? node.rect.w : undefined
-  );
+  if (sprite) {
+    // Compact icon badge + label
+    const glyph = sprite.glyph;
+    const glyphX = x + 1 + Math.max(0, Math.floor((innerW - glyph.length) / 2));
+    grid.writeText(glyphX, y + 1, glyph, innerW);
+
+    const cap = btnLabel.length <= innerW ? btnLabel : (labelText.length <= innerW ? labelText : labelText.slice(0, innerW));
+    const capX = x + 1 + Math.max(0, Math.floor((innerW - cap.length) / 2));
+    grid.writeText(capX, y + h - 2, cap, innerW);
+    return;
+  }
+
+  // No icon: Center label vertically inside
+  const cap = btnLabel.length <= innerW ? btnLabel : (labelText.length <= innerW ? labelText : labelText.slice(0, innerW));
+  const capX = x + 1 + Math.max(0, Math.floor((innerW - cap.length) / 2));
+  const midY = y + Math.floor(h / 2);
+  grid.writeText(capX, midY, cap, innerW);
 }
 
 export function stampInput(grid: CharGrid, node: SceneNode): void {

@@ -3,6 +3,7 @@ export * from './ast/mutations.js';
 export * from './rasterizer/bitmask-junctions.js';
 export * from './rasterizer/char-grid.js';
 export * from './rasterizer/widget-stampers.js';
+export * from './rasterizer/ascii-icons.js';
 export * from './rasterizer/stampers-nav-data.js';
 export * from './rasterizer/stampers-feedback.js';
 export * from './serializer/wireframe-md.js';

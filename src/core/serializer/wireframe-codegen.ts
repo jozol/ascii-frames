@@ -94,6 +94,12 @@ export function serializeToReactTailwind(
           ${label || 'Alert message notice'}
         </div>`;
 
+      case 'icon':
+        const iconKey = node.meta?.iconName || (node.label ? node.label.replace(/[{}\[\]]/g, '') : 'gear');
+        return `        <span id="${node.id}" role="img" aria-label="${iconKey}" data-icon="${iconKey}" className="inline-flex items-center justify-center text-stone-300 font-mono text-sm">
+          {/* ${iconKey} icon */}
+        </span>`;
+
       case 'text':
       default:
         return `        <p id="${node.id}" className="text-stone-300 text-sm leading-relaxed">${label}</p>`;
@@ -134,6 +140,9 @@ export function serializeToHtmlCss(
         return `    <label class="switch"><input type="checkbox"${n.meta?.checked ? ' checked' : ''} /><span class="slider"></span> <span>${label}</span></label>`;
       case 'alert':
         return `    <div class="alert">${label || 'Alert Notice'}</div>`;
+      case 'icon':
+        const iconName = n.meta?.iconName || (n.label ? n.label.replace(/[{}\[\]]/g, '') : 'gear');
+        return `    <span id="${n.id}" class="icon" data-icon="${iconName}" role="img" aria-label="${iconName}"></span>`;
       case 'text':
       default:
         return `    <p class="text">${label}</p>`;

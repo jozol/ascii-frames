@@ -52,7 +52,7 @@ export type EditorTool =
   | 'line'
   | 'button'
   | 'input'
-  | 'select'
+  | 'dropdown'
   | 'checkbox'
   | 'radio'
   | 'toggle'
@@ -63,7 +63,14 @@ export type EditorTool =
   | 'table'
   | 'badge'
   | 'progress'
-  | 'alert';
+  | 'alert'
+  | 'icon';
+
+export function toolToWidgetType(tool: EditorTool): WidgetType | null {
+  if (tool === 'select' || tool === 'hand') return null;
+  if (tool === 'dropdown') return 'select';
+  return tool as WidgetType;
+}
 
 export type LeftPanelTab = 'layers' | 'components';
 
@@ -80,6 +87,18 @@ export class EditorState {
   public isPlayMode = false;
   public playHistory: string[] = [];
   public codeTarget: CodeTarget = 'react-tailwind';
+  public isLeftCollapsed = false;
+  public isRightCollapsed = false;
+
+  public toggleLeftPanel(collapsed?: boolean): void {
+    this.isLeftCollapsed = collapsed !== undefined ? collapsed : !this.isLeftCollapsed;
+    this.notify();
+  }
+
+  public toggleRightPanel(collapsed?: boolean): void {
+    this.isRightCollapsed = collapsed !== undefined ? collapsed : !this.isRightCollapsed;
+    this.notify();
+  }
 
   // Screen / Viewport State
   public currentScreen: ScreenConfig | null = null;
@@ -610,6 +629,9 @@ export class EditorState {
     } else if (type === 'alert') {
       initialRect = { x: 4, y: 4, w: 34, h: 3 };
       defaultLabel = 'System update scheduled for midnight';
+    } else if (type === 'icon') {
+      initialRect = { x: 4, y: 4, w: 9, h: 3 };
+      defaultLabel = '';
     } else {
       initialRect = { x: 4, y: 4, w: 14, h: 1 };
     }
@@ -620,6 +642,7 @@ export class EditorState {
       rect: initialRect,
       zIndex: type === 'container' ? 0 : 1,
       label: defaultLabel || undefined,
+      meta: type === 'icon' ? { iconName: 'gear' } : undefined,
     };
     this.setNodes(addNode(this.nodes, newNode, parentId));
     this.selectNode(id);
@@ -628,15 +651,30 @@ export class EditorState {
 
   public createNodeAt(type: WidgetType, rect: Rect, parentId?: string): string {
     const id = `${type}-${Date.now().toString(36)}`;
-    const isBox = type === 'container' || type === 'circle' || type === 'table' || type === 'alert';
-    const minW = isBox ? 3 : 1;
-    const minH = isBox ? 3 : 1;
-    const clampedRect: Rect = {
-      x: Math.max(0, Math.round(rect.x)),
-      y: Math.max(0, Math.round(rect.y)),
-      w: Math.max(minW, Math.round(rect.w)),
-      h: Math.max(minH, Math.round(rect.h)),
-    };
+    let clampedRect: Rect;
+    if (type === 'icon' && (rect.w < 3 || rect.h < 3)) {
+      clampedRect = {
+        x: Math.max(0, Math.round(rect.x)),
+        y: Math.max(0, Math.round(rect.y)),
+        w: 9,
+        h: 3,
+      };
+    } else {
+      const isBox =
+        type === 'container' ||
+        type === 'circle' ||
+        type === 'table' ||
+        type === 'alert' ||
+        type === 'icon';
+      const minW = isBox ? 3 : 1;
+      const minH = isBox ? 3 : 1;
+      clampedRect = {
+        x: Math.max(0, Math.round(rect.x)),
+        y: Math.max(0, Math.round(rect.y)),
+        w: Math.max(minW, Math.round(rect.w)),
+        h: Math.max(minH, Math.round(rect.h)),
+      };
+    }
 
     let defaultLabel = type.charAt(0).toUpperCase() + type.slice(1);
     if (type === 'divider') defaultLabel = '';
@@ -651,6 +689,7 @@ export class EditorState {
     if (type === 'badge') defaultLabel = 'Active';
     if (type === 'progress') defaultLabel = '';
     if (type === 'alert') defaultLabel = 'System update scheduled for midnight';
+    if (type === 'icon') defaultLabel = '';
 
     const newNode: SceneNode = {
       id,
@@ -658,6 +697,7 @@ export class EditorState {
       rect: clampedRect,
       zIndex: type === 'container' ? 0 : 1,
       label: defaultLabel || undefined,
+      meta: type === 'icon' ? { iconName: 'gear' } : undefined,
     };
 
     this.setNodes(addNode(this.nodes, newNode, parentId));

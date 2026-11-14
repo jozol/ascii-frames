@@ -1576,4 +1576,55 @@ describe('Editor UI Realistic User Interaction Suite', () => {
     expect(updated?.meta?.iconName).toBe('lock');
     expect(app.iconArtPreview?.textContent).toContain('┌┴─┴┐');
   });
+
+  it('Case 39: Selection overlay frame aligns accurately on sparse canvas with trimmed trailing spaces', () => {
+    app.state.setScreen('mobile-large');
+    app.state.clearCanvas();
+    const circleId = app.state.createNodeAt('circle', { x: 4, y: 4, w: 8, h: 4 });
+    app.state.selectNode(circleId);
+
+    // Longest line in rendered text is 12 chars because trailing spaces are stripped
+    const maxRenderedLineLen = Math.max(
+      ...(app.asciiOutput.textContent || '').split('\n').map((l) => l.length)
+    );
+    expect(maxRenderedLineLen).toBe(12);
+    expect(app.gridCols).toBe(36);
+    expect(app.gridRows).toBe(34);
+
+    // Headless fallback divides by full gridCols (36), not trimmed line length (12)
+    const fallbackMetrics = app.getCellMetrics();
+    expect(fallbackMetrics.charW).toBeCloseTo((800 - fallbackMetrics.padLeft * 2) / 36, 5);
+    expect(parseFloat(app.selectionOverlay.style.left)).toBeCloseTo(
+      fallbackMetrics.padLeft + 4 * fallbackMetrics.charW,
+      5
+    );
+    expect(parseFloat(app.selectionOverlay.style.width)).toBeCloseTo(
+      8 * fallbackMetrics.charW,
+      5
+    );
+
+    // With measureProbe reporting real layout dimensions (100 cols * 9.6px, 10 rows * 19.5px)
+    expect(app.measureProbe).toBeDefined();
+    vi.spyOn(app.measureProbe!, 'getBoundingClientRect').mockReturnValue({
+      width: 960,
+      height: 195,
+      left: 0,
+      top: 0,
+      right: 960,
+      bottom: 195,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    app.updateSelectionOverlay();
+
+    const probeMetrics = app.getCellMetrics();
+    expect(probeMetrics.charW).toBeCloseTo(9.6, 5);
+    expect(probeMetrics.charH).toBeCloseTo(19.5, 5);
+    expect(app.selectionOverlay.style.left).toBe(`${24 + 4 * 9.6}px`);
+    expect(app.selectionOverlay.style.top).toBe(`${24 + 4 * 19.5}px`);
+    expect(app.selectionOverlay.style.width).toBe(`${8 * 9.6}px`);
+    expect(app.selectionOverlay.style.height).toBe(`${4 * 19.5}px`);
+  });
 });

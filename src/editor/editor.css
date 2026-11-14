@@ -1047,6 +1047,8 @@ body.play-mode-active .studio-canvas-area {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: subpixel-antialiased;
   text-shadow: 0 0 0.5px rgba(28, 25, 23, 0.32);
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
 }
 
 [data-theme="dark"] .canvas-pre,

@@ -228,6 +228,12 @@ export class EditorApp {
   public isSpacePressed = false;
   private panStart = { x: 0, y: 0, scrollLeft: 0, scrollTop: 0 };
 
+  private static readonly PROBE_COLS = 100;
+  private static readonly PROBE_ROWS = 10;
+  public gridCols: number = 1;
+  public gridRows: number = 1;
+  public measureProbe?: HTMLElement;
+
   private boundKeyHandler: (e: KeyboardEvent) => void;
   private boundKeyUpHandler: (e: KeyboardEvent) => void;
   private boundPointerMove: (e: PointerEvent) => void;
@@ -249,7 +255,10 @@ export class EditorApp {
     this.boundKeyUpHandler = (e: KeyboardEvent) => this.handleKeyUp(e);
     this.boundPointerMove = (e: PointerEvent) => this.handlePointerMove(e);
     this.boundPointerUp = (e: PointerEvent) => this.handlePointerUp(e);
-    this.boundResizeHandler = () => this.fitIfOverflowing();
+    this.boundResizeHandler = () => {
+      this.fitIfOverflowing();
+      this.updateSelectionOverlay();
+    };
 
     window.addEventListener('keydown', this.boundKeyHandler);
     window.addEventListener('keyup', this.boundKeyUpHandler);
@@ -506,19 +515,55 @@ export class EditorApp {
     }, 2000);
   }
 
+  private ensureMeasureProbe(): HTMLElement {
+    if (!this.measureProbe) {
+      const doc = this.root instanceof Document ? this.root : document;
+      const probe = doc.createElement('pre');
+      probe.className = 'canvas-pre';
+      probe.setAttribute('aria-hidden', 'true');
+      probe.style.position = 'absolute';
+      probe.style.visibility = 'hidden';
+      probe.style.pointerEvents = 'none';
+      probe.style.padding = '0';
+      probe.style.margin = '0';
+      probe.style.border = '0';
+      probe.style.top = '0';
+      probe.style.left = '0';
+      probe.style.width = 'max-content';
+      probe.style.minWidth = '0';
+      probe.style.minHeight = '0';
+      probe.style.zIndex = '-1';
+      const line = 'M'.repeat(EditorApp.PROBE_COLS);
+      probe.textContent = Array.from({ length: EditorApp.PROBE_ROWS }, () => line).join('\n');
+      this.measureProbe = probe;
+    }
+    if (this.artboard && this.measureProbe.parentElement !== this.artboard) {
+      this.artboard.appendChild(this.measureProbe);
+    }
+    return this.measureProbe;
+  }
+
   // Calculate cell metrics from <pre> element
   public getCellMetrics(): { charW: number; charH: number; padLeft: number; padTop: number } {
     const pre = this.asciiOutput;
-    const lines = (pre.textContent || '').split('\n');
-    const cols = Math.max(...lines.map((l) => l.length), 1);
-    const rows = Math.max(lines.length, 1);
-
-    const rect = pre.getBoundingClientRect();
     const style = window.getComputedStyle ? window.getComputedStyle(pre) : ({} as any);
     const padLeft = parseFloat(style.paddingLeft || '24') || 24;
     const padTop = parseFloat(style.paddingTop || '24') || 24;
-
     const zoom = this.zoom || 1.0;
+
+    const probe = this.ensureMeasureProbe();
+    const probeRect = probe.getBoundingClientRect();
+    if (probeRect.width > 0 && probeRect.height > 0) {
+      const charW = probeRect.width / zoom / EditorApp.PROBE_COLS;
+      const charH = probeRect.height / zoom / EditorApp.PROBE_ROWS;
+      return { charW, charH, padLeft, padTop };
+    }
+
+    const lines = (pre.textContent || '').split('\n');
+    const cols = Math.max(this.gridCols, ...lines.map((l) => l.length), 1);
+    const rows = Math.max(this.gridRows, lines.length, 1);
+
+    const rect = pre.getBoundingClientRect();
     const unscaledW = rect.width ? rect.width / zoom : (pre.clientWidth || 800);
     const unscaledH = rect.height ? rect.height / zoom : (pre.clientHeight || 400);
 
@@ -940,7 +985,16 @@ export class EditorApp {
   public updateUI(): void {
     // 1. Rasterize CharGrid (< 2ms budget)
     const { grid, renderedText, renderMs } = this.state.rasterize();
+    this.gridCols = grid.width;
+    this.gridRows = grid.height;
     this.asciiOutput.textContent = renderedText;
+    const probe = this.ensureMeasureProbe();
+    const probeRect = probe.getBoundingClientRect();
+    if (probeRect.width > 0 && probeRect.height > 0) {
+      const { charW, charH, padLeft, padTop } = this.getCellMetrics();
+      this.asciiOutput.style.minWidth = `${padLeft * 2 + grid.width * charW}px`;
+      this.asciiOutput.style.minHeight = `${padTop * 2 + grid.height * charH}px`;
+    }
     this.renderTimer.textContent = `${renderMs.toFixed(2)} ms (< 2ms)`;
 
     // Update Screen Selection Dropdown
@@ -2726,13 +2780,14 @@ export class EditorApp {
 
     const { charW, charH } = this.getCellMetrics();
     const { cellX, cellY } = this.clientToCell(e.clientX, e.clientY);
+    const zoom = this.zoom || 1.0;
     const dx =
       charW > 0
-        ? Math.round((e.clientX - this.startPoint.clientX) / charW)
+        ? Math.round((e.clientX - this.startPoint.clientX) / (charW * zoom))
         : cellX - this.startPoint.cellX;
     const dy =
       charH > 0
-        ? Math.round((e.clientY - this.startPoint.clientY) / charH)
+        ? Math.round((e.clientY - this.startPoint.clientY) / (charH * zoom))
         : cellY - this.startPoint.cellY;
 
     if (this.dragMode === 'move') {
